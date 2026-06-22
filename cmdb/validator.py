@@ -32,6 +32,37 @@ VALID_KINDS = {"asset", "software", "automation", "data", "endpoint"}
 DEFAULT_ENTITIES_DIR = Path("/home/carlos/registry")
 
 
+def load_entities_with_paths(entities_dir: Optional[Path] = None) -> tuple[dict, dict]:
+    """
+    Load all YAML entities and return both entity data and file paths.
+    
+    Returns:
+        (entities_dict, entity_paths_dict) — entity data keyed by ID, and file paths keyed by ID
+    """
+    entities_dir = entities_dir or DEFAULT_ENTITIES_DIR
+    entities = {}
+    entity_paths = {}
+    
+    if not entities_dir.exists():
+        return entities, entity_paths
+    
+    for yaml_file in entities_dir.rglob("*.yaml"):
+        try:
+            with open(yaml_file, "r", encoding="utf-8") as f:
+                entity = yaml.safe_load(f)
+            
+            if entity and "id" in entity:
+                entity_id = entity["id"]
+                entities[entity_id] = entity
+                entity_paths[entity_id] = yaml_file
+        except yaml.YAMLError:
+            continue
+        except Exception:
+            continue
+    
+    return entities, entity_paths
+
+
 def load_entities(entities_dir: Optional[Path] = None) -> dict:
     """
     Load all YAML entities from the entities directory.
