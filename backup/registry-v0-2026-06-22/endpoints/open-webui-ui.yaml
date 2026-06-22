@@ -1,0 +1,8 @@
+id: open-webui-ui
+category: endpoints
+type: llm-ui
+name: Open WebUI
+url: http://192.168.1.54:8080
+service_ref: open-webui
+access: internal
+auth: none
