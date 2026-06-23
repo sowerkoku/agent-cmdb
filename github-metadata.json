@@ -1,0 +1,18 @@
+{
+  "description": "A factual grounding layer that helps AI agents query verified reality before reasoning or acting.",
+  "topics": [
+    "ai-agents",
+    "agentic-ai",
+    "grounding",
+    "cmdb",
+    "knowledge-graph",
+    "dependency-graph",
+    "agent-memory",
+    "llm",
+    "reasoning",
+    "infrastructure",
+    "facts",
+    "hallucination-prevention",
+    "factual-memory"
+  ]
+}
