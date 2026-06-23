@@ -28,8 +28,8 @@ from .rules.lifecycle import validate_all_lifecycle
 # Catálogo cerrado de kinds válidos
 VALID_KINDS = {"asset", "software", "automation", "data", "endpoint"}
 
-# Directorio de entidades (por defecto: /home/carlos/registry/)
-DEFAULT_ENTITIES_DIR = Path("/home/carlos/registry")
+# Directorio de entidades (por defecto: ~/agent-cmdb/data/)
+DEFAULT_ENTITIES_DIR = Path.home() / "agent-cmdb" / "data"
 
 
 def load_entities_with_paths(entities_dir: Optional[Path] = None) -> tuple[dict, dict]:
@@ -159,7 +159,7 @@ def cmdb_validate(entities_dir: Optional[Path] = None) -> dict:
     Validate all entities in the CMDB.
     
     Args:
-        entities_dir: Path to entities directory (default: /home/carlos/registry/)
+        entities_dir: Path to entities directory (default: ~/agent-cmdb/data/)
     
     Returns:
         dict with:

@@ -11,7 +11,7 @@ from cmdb import cmdb_assert as _cmdb_assert
 from pathlib import Path
 
 
-ENTITIES_DIR = Path("/home/carlos/registry")
+ENTITIES_DIR = Path.home() / "agent-cmdb" / "data"
 
 
 def cmdb_assert(entity_id: str, expected_kind: str = None, expected_status: str = None) -> dict:

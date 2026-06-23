@@ -388,12 +388,12 @@ def cmdb_migrate_dry_run(entities_dir: Optional[Path] = None) -> MigrationPlan:
     Plan a migration from v0 to v1 without applying changes.
     
     Args:
-        entities_dir: Path to entities directory (default: /home/carlos/registry/)
+        entities_dir: Path to entities directory (default: ~/agent-cmdb/data/)
     
     Returns:
         MigrationPlan with full details of what would change
     """
-    entities_dir = entities_dir or Path("/home/carlos/registry")
+    entities_dir = entities_dir or Path.home() / "agent-cmdb" / "data"
     plan = MigrationPlan()
     
     if not entities_dir.exists():
@@ -443,7 +443,7 @@ def cmdb_migrate_apply(entities_dir: Optional[Path] = None, backup_dir: Optional
     Returns:
         dict with migration results
     """
-    entities_dir = entities_dir or Path("/home/carlos/registry")
+    entities_dir = entities_dir or Path.home() / "agent-cmdb" / "data"
     
     # Create backup
     if backup_dir is None:
@@ -503,7 +503,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="CMDB Migrator — v0 → v1")
     parser.add_argument("--dry-run", action="store_true", help="Plan migration without applying")
     parser.add_argument("--apply", action="store_true", help="Apply migration (creates backup first)")
-    parser.add_argument("--entities-dir", type=Path, default=Path("/home/carlos/registry"), help="Entities directory")
+    parser.add_argument("--entities-dir", type=Path, default=Path.home() / "agent-cmdb" / "data", help="Entities directory")
     parser.add_argument("--output", type=Path, help="Output directory for migration plan (dry-run only)")
     
     args = parser.parse_args()

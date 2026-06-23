@@ -28,7 +28,7 @@ from .models import (
 )
 
 
-DEFAULT_ENTITIES_DIR = Path("/home/carlos/registry")
+DEFAULT_ENTITIES_DIR = Path.home() / "agent-cmdb" / "data"
 
 
 def _extract_facts(entity: dict) -> list[str]:
@@ -140,7 +140,7 @@ def cmdb_exists(entity_id: str, entities_dir: Optional[Path] = None) -> dict:
             "reason": "Entity found in CMDB",
             "source": {
                 "type": "cmdb",
-                "file": "/home/carlos/registry/software/ollama.yaml",
+                "file": "~/agent-cmdb/data/software/ollama.yaml",
                 "verified_at": "2026-06-22T19:45:00"
             },
             "confidence": "verified"

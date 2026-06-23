@@ -127,7 +127,7 @@ def cmdb_context(
         }
     """
     from .validator import load_entities_with_paths
-    entities_dir = entities_dir or Path("/home/carlos/registry")
+    entities_dir = entities_dir or Path.home() / "agent-cmdb" / "data"
     entities, paths = load_entities_with_paths(entities_dir)
     
     if agent_id not in entities:

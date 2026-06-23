@@ -13,7 +13,7 @@ from cmdb import cmdb_get as _cmdb_get
 from pathlib import Path
 
 
-ENTITIES_DIR = Path("/home/carlos/registry")
+ENTITIES_DIR = Path.home() / "agent-cmdb" / "data"
 
 
 def cmdb_get(entity_id: str) -> dict:

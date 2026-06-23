@@ -17,7 +17,7 @@ from collections import defaultdict
 from .validator import load_entities_with_paths
 
 
-DEFAULT_ENTITIES_DIR = Path("/home/carlos/registry")
+DEFAULT_ENTITIES_DIR = Path.home() / "agent-cmdb" / "data"
 
 # Relation types that create dependencies (X depends on Y)
 DEPENDENCY_RELATIONS = {"uses", "reads", "writes", "runs_on", "calls"}

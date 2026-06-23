@@ -2,6 +2,12 @@
 
 Tool wrappers exposing Agent-CMDB functionality to Hermes Agent.
 
+## Storage Location
+
+**Default:** `~/agent-cmdb/data/`
+
+All tools read from and write to the skill's internal data store.
+
 ## Available Tools
 
 | Tool | Purpose | When to Use |

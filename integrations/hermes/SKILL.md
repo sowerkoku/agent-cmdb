@@ -26,6 +26,27 @@ Prevent AI agents from:
 
 > An agent should not **remember** infrastructure; it should **query** a verifiable representation of reality before reasoning.
 
+## Storage Location
+
+**Default:** `~/agent-cmdb/data/` (internal to the skill)
+
+The skill maintains its own data store, independent of external registries.
+
+```
+~/agent-cmdb/data/
+├── assets/           # Hardware, servers, devices
+├── software/         # Applications, services, runtimes
+├── endpoints/        # IPs, networks, ports
+├── data/             # Databases, configurations, secrets
+├── agents/           # AI agents, profiles
+├── automation/       # Cron jobs, CI/CD, scripts
+├── procedures/       # Runbooks, playbooks
+├── projects/         # Active projects
+└── secrets/          # Credentials (encrypted)
+```
+
+**Note:** Previously used `/home/carlos/registry/` — migrated to internal storage in v1.0.1.
+
 ## Contract: What This Skill Provides
 
 ### 1. Factual Grounding (NOT Opinions)
@@ -405,6 +426,13 @@ This skill is framework-agnostic. Future integrations:
 All share the same core: `cmdb/` factual layer.
 
 ## changelog
+
+### v1.0.1 (2026-06-23)
+
+- **BREAKING:** Changed default storage from `/home/carlos/registry/` to `~/agent-cmdb/data/`
+- Skill now maintains its own internal data store
+- All tools updated: `cmdb_exists`, `cmdb_get`, `cmdb_assert`, `cmdb_impact`, `cmdb_context`
+- Added sample entities: `agent-cmdb-host`, `agent-cmdb-core`, `agent-cmdb-data-store`
 
 ### v1.0.0 (2026-06-22)
 

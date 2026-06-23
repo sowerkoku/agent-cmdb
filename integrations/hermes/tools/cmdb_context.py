@@ -14,7 +14,7 @@ from cmdb import cmdb_context as _cmdb_context
 from pathlib import Path
 
 
-ENTITIES_DIR = Path("/home/carlos/registry")
+ENTITIES_DIR = Path.home() / "agent-cmdb" / "data"
 
 
 def cmdb_context(agent_id: str) -> dict:
