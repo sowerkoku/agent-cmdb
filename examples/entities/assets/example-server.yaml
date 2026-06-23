@@ -1,0 +1,17 @@
+schema_version: 1
+id: example-server
+kind: asset
+metadata:
+  name: Example Server
+  description: Physical or virtual server (replace with your data)
+  hostname: server-01
+  cpu: Intel Xeon E5-2680
+  ram: 32GB
+  storage: 500GB SSD
+  location: Data Center A
+status: operational
+relations: []
+criticality:
+  business: medium
+  operational: high
+  technical: medium

@@ -414,6 +414,143 @@ cd integrations/hermes/tests
 python -m pytest
 ```
 
+## Entity YAML Format
+
+### Minimal Entity
+
+```yaml
+schema_version: 1
+id: my-entity
+kind: software  # asset, software, endpoint, data, network, automation
+metadata:
+  name: My Entity
+  description: What is this?
+status: operational  # operational, degraded, down, deprecated
+relations: []  # See relations format below
+```
+
+### Asset (Hardware/Server)
+
+```yaml
+schema_version: 1
+id: server-01
+kind: asset
+metadata:
+  name: Production Server 01
+  description: Main application server
+  hostname: server-01.example.com
+  cpu: Intel Xeon E5-2680
+  ram: 32GB
+  storage: 500GB SSD
+  location: Data Center A, Rack 12
+status: operational
+relations: []
+criticality:
+  business: high
+  operational: high
+  technical: medium
+```
+
+### Software (Application/Service)
+
+```yaml
+schema_version: 1
+id: postgresql
+kind: software
+metadata:
+  name: PostgreSQL Database
+  description: Primary database server
+  version: 15.2
+  port: 5432
+  protocol: tcp
+status: operational
+relations:
+- type: runs_on
+  target: server-01
+criticality:
+  business: high
+  operational: high
+  technical: high
+```
+
+### Endpoint (Network Device/IP)
+
+```yaml
+schema_version: 1
+id: device-10
+kind: endpoint
+metadata:
+  name: Device 10
+  description: Network device
+  ip_address: 192.168.1.10
+  mac_address: 00:1A:2B:3C:4D:5E
+  network: 192.168.1.0/24
+status: operational
+relations:
+- type: connected_to
+  target: network-192-168-1-0
+criticality:
+  business: low
+  operational: low
+  technical: low
+```
+
+### Network
+
+```yaml
+schema_version: 1
+id: network-192-168-1-0
+kind: network
+metadata:
+  name: Local Network
+  description: Home/Office LAN
+  cidr: 192.168.1.0/24
+  gateway: 192.168.1.1
+  dns:
+    - 192.168.1.1
+    - 8.8.8.8
+  dhcp: true
+  vlan: 100
+status: operational
+relations: []
+```
+
+### Relations Format
+
+Available relation types:
+- `runs_on`: Software runs on hardware
+- `uses`: Depends on another service
+- `connected_to`: Network connectivity
+- `reads`: Reads from data source
+- `writes`: Writes to data source
+- `calls`: Makes API/RPC calls
+- `owns`: Ownership relationship
+- `backs_up`: Backup relationship
+- `monitors`: Monitoring relationship
+
+```yaml
+relations:
+- type: runs_on
+  target: server-01
+- type: uses
+  target: postgresql
+```
+
+## Initialization
+
+Run the initialization script on first install:
+
+```bash
+cd agent-cmdb
+python scripts/init_cmdb.py
+```
+
+This creates the directory structure with `.gitkeep` files.
+
+## Examples
+
+See `examples/entities/` for complete working examples with all fields.
+
 ## Future Integrations
 
 This skill is framework-agnostic. Future integrations:
