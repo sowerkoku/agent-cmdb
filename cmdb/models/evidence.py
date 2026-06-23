@@ -10,6 +10,7 @@ Answers:
 """
 
 from dataclasses import dataclass, field
+from datetime import datetime
 from enum import Enum
 from typing import List, Optional
 
@@ -53,7 +54,6 @@ class ConfidenceLevel(Enum):
     INFERRED = "inferred"
     UNKNOWN = "unknown"
 
-
 @dataclass
 class Evidence:
     """
@@ -61,12 +61,16 @@ class Evidence:
     
     Usage by agents:
     - Cite source: f"According to {evidence.source_file}..."
+    - Check freshness: is_fresh() method
     - Express uncertainty: "Evidence level is {evidence.confidence_level.value}"
     - Detect changes: compare evidence.entity_hash between queries
     
     Fields:
     - source_type: Origin of data (declared/discovered/imported/inferred)
     - source_file: Path to source YAML (for declared sources)
+    - observed_at: When the fact was observed/verified (ISO format)
+    - expires_at: When confidence expires (optional, calculated from ttl)
+    - ttl_seconds: Expected time-to-live for this evidence
     - schema_version: Format version (for validated sources)
     - validated: Whether source passed validation
     - entity_hash: SHA256[:16] for change detection
@@ -76,11 +80,83 @@ class Evidence:
     source_type: SourceType = SourceType.DECLARED
     source_file: Optional[str] = None
     source_type_label: Optional[str] = None  # "cmdb_yaml", "docker_scan", etc.
+    
+    # Temporal — CRITICAL for agent reasoning
+    observed_at: str = field(default_factory=lambda: datetime.now().isoformat())
+    expires_at: Optional[str] = None
+    ttl_seconds: Optional[int] = None
+    
     schema_version: Optional[int] = None
     validated: bool = False
     entity_hash: Optional[str] = None  # SHA256[:16]
     confidence_level: ConfidenceLevel = ConfidenceLevel.UNKNOWN
     confidence_reasons: List[str] = field(default_factory=list)
+    
+    def __post_init__(self):
+        """Calculate expires_at from ttl if not set."""
+        if self.ttl_seconds and not self.expires_at:
+            from datetime import timedelta
+            observed = datetime.fromisoformat(self.observed_at)
+            expires = observed + timedelta(seconds=self.ttl_seconds)
+            self.expires_at = expires.isoformat()
+    
+    def is_fresh(self) -> bool:
+        """
+        Check if evidence is still fresh (not expired).
+        
+        Returns True if:
+        - No expires_at set (indefinite validity)
+        - Current time < expires_at
+        
+        Returns False if:
+        - Current time >= expires_at
+        """
+        if not self.expires_at:
+            return True
+        
+        now = datetime.now()
+        expires = datetime.fromisoformat(self.expires_at)
+        return now < expires
+    
+    def age_seconds(self) -> float:
+        """Calculate age of evidence in seconds."""
+        observed = datetime.fromisoformat(self.observed_at)
+        return (datetime.now() - observed).total_seconds()
+    
+    def time_to_expiry_seconds(self) -> Optional[float]:
+        """Calculate time remaining until expiry (None if no expiry)."""
+        if not self.expires_at:
+            return None
+        
+        expires = datetime.fromisoformat(self.expires_at)
+        remaining = (expires - datetime.now()).total_seconds()
+        return max(0, remaining)
+    
+    @classmethod
+    def with_default_ttl(cls, source_type: SourceType, **kwargs) -> "Evidence":
+        """
+        Factory with default TTL based on source type.
+        
+        TTL defaults:
+        - DECLARED: None (no expiry — intentional declaration)
+        - DISCOVERED: 3600 (1 hour — auto-discovery may go stale)
+        - IMPORTED: 300 (5 min — external APIs change frequently)
+        - INFERRED: 60 (1 min — inferences may be invalidated)
+        """
+        default_ttls = {
+            SourceType.DECLARED: None,
+            SourceType.DISCOVERED: 3600,
+            SourceType.IMPORTED: 300,
+            SourceType.INFERRED: 60,
+        }
+        
+        ttl = kwargs.pop('ttl_seconds', default_ttls.get(source_type))
+        
+        return cls(
+            source_type=source_type,
+            ttl_seconds=ttl,
+            **kwargs
+        )
     
     @classmethod
     def verified(cls, source_file: str, entity_hash: str) -> "Evidence":
@@ -94,6 +170,7 @@ class Evidence:
             entity_hash=entity_hash,
             confidence_level=ConfidenceLevel.VERIFIED,
             confidence_reasons=["yaml_validated_schema_v1"],
+            # No TTL for declared facts — valid until changed
         )
     
     @classmethod
