@@ -38,21 +38,32 @@ class ConfidenceLevel(Enum):
     
     IMPORTANT: This measures EVIDENCE QUALITY, not truth probability.
     
-    "verified" does NOT mean "99.9% true".
-    It means: "Evidence meets validation criteria defined by CMDB schema."
+    "high" does NOT mean "100% true".
+    It means: "Multiple strong evidence sources support this fact."
     
     Levels:
-    - verified: Validated against schema v1 (highest evidence standard)
-    - declared: exists in source but not validated
-    - discovered: auto-discovered, unvalidated
-    - inferred: deduced by engine (may be incomplete)
-    - unknown: minimal or no evidence
+    - high: Multiple strong signals (schema validated + human declared + recent)
+    - medium: Single strong signal OR multiple weak signals
+    - low: Weak or incomplete evidence
+    - unknown: Minimal or no evidence
     """
-    VERIFIED = "verified"
-    DECLARED = "declared"
-    DISCOVERED = "discovered"
-    INFERRED = "inferred"
+    HIGH = "high"
+    MEDIUM = "medium"
+    LOW = "low"
     UNKNOWN = "unknown"
+
+
+class EvidenceBasis(Enum):
+    """
+    Why we trust this fact.
+    
+    Multiple basis can be combined to strengthen confidence.
+    """
+    SCHEMA_VALIDATED = "schema_validated"  # Passed YAML schema validation
+    HUMAN_DECLARED = "human_declared"  # Intentionally declared by human
+    RUNTIME_CHECKED = "runtime_checked"  # Verified at runtime (health check, etc.)
+    INFERRED = "inferred"  # Deduced from other facts
+    DISCOVERED = "discovered"  # Auto-discovered by scanner
 
 @dataclass
 class Evidence:
@@ -62,6 +73,7 @@ class Evidence:
     Usage by agents:
     - Cite source: f"According to {evidence.source_file}..."
     - Check freshness: is_fresh() method
+    - Check confidence: confidence_level + basis
     - Express uncertainty: "Evidence level is {evidence.confidence_level.value}"
     - Detect changes: compare evidence.entity_hash between queries
     
@@ -70,12 +82,14 @@ class Evidence:
     - source_file: Path to source YAML (for declared sources)
     - observed_at: When the fact was observed/verified (ISO format)
     - expires_at: When confidence expires (optional, calculated from ttl)
+    - invalidated_at: When fact was marked invalid (optional)
+    - invalidated_reason: Why invalidated (optional)
     - ttl_seconds: Expected time-to-live for this evidence
     - schema_version: Format version (for validated sources)
     - validated: Whether source passed validation
     - entity_hash: SHA256[:16] for change detection
-    - confidence_level: Evidence quality (verified/declared/discovered/inferred/unknown)
-    - confidence_reasons: Why this level was assigned
+    - confidence_level: Evidence quality (high/medium/low/unknown)
+    - confidence_basis: Why this level was assigned (list of EvidenceBasis)
     """
     source_type: SourceType = SourceType.DECLARED
     source_file: Optional[str] = None
@@ -86,10 +100,19 @@ class Evidence:
     expires_at: Optional[str] = None
     ttl_seconds: Optional[int] = None
     
+    # Lifecycle — for tracking when facts become invalid
+    invalidated_at: Optional[str] = None
+    invalidated_reason: Optional[str] = None
+    
     schema_version: Optional[int] = None
     validated: bool = False
     entity_hash: Optional[str] = None  # SHA256[:16]
+    
+    # Confidence (quality of evidence, not truth)
     confidence_level: ConfidenceLevel = ConfidenceLevel.UNKNOWN
+    confidence_basis: List[EvidenceBasis] = field(default_factory=list)
+    
+    # DEPRECATED: kept for backward compatibility during transition
     confidence_reasons: List[str] = field(default_factory=list)
     
     def __post_init__(self):
@@ -160,7 +183,7 @@ class Evidence:
     
     @classmethod
     def verified(cls, source_file: str, entity_hash: str) -> "Evidence":
-        """Factory for verified evidence (convenient constructor)."""
+        """Factory for high-confidence evidence (convenient constructor)."""
         return cls(
             source_type=SourceType.DECLARED,
             source_file=source_file,
@@ -168,28 +191,26 @@ class Evidence:
             schema_version=1,
             validated=True,
             entity_hash=entity_hash,
-            confidence_level=ConfidenceLevel.VERIFIED,
-            confidence_reasons=["yaml_validated_schema_v1"],
+            confidence_level=ConfidenceLevel.HIGH,
+            confidence_basis=[EvidenceBasis.SCHEMA_VALIDATED, EvidenceBasis.HUMAN_DECLARED],
             # No TTL for declared facts — valid until changed
         )
     
     @classmethod
     def declared(cls, source_file: str, schema_version: Optional[int] = None) -> "Evidence":
         """Factory for declared (unvalidated) evidence."""
-        reasons = []
+        basis = [EvidenceBasis.HUMAN_DECLARED]
         if schema_version:
-            reasons.append(f"schema_v{schema_version}")
-        else:
-            reasons.append("no_schema_version")
+            basis.append(EvidenceBasis.SCHEMA_VALIDATED)
         
         return cls(
             source_type=SourceType.DECLARED,
             source_file=source_file,
             source_type_label="cmdb_yaml",
             schema_version=schema_version,
-            validated=False,
-            confidence_level=ConfidenceLevel.DECLARED,
-            confidence_reasons=reasons,
+            validated=schema_version is not None,
+            confidence_level=ConfidenceLevel.MEDIUM if schema_version else ConfidenceLevel.LOW,
+            confidence_basis=basis,
         )
     
     def to_dict(self) -> dict:
@@ -202,9 +223,12 @@ class Evidence:
             "validated": self.validated,
             "entity_hash": self.entity_hash,
             "confidence_level": self.confidence_level.value,
-            "confidence_reasons": self.confidence_reasons,
+            "confidence_basis": [b.value for b in self.confidence_basis],
             # Temporal fields (critical for agent reasoning)
             "observed_at": self.observed_at,
             "expires_at": self.expires_at,
             "ttl_seconds": self.ttl_seconds,
+            # Lifecycle (for tracking invalidation)
+            "invalidated_at": self.invalidated_at,
+            "invalidated_reason": self.invalidated_reason,
         }
