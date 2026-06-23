@@ -32,6 +32,7 @@ registry-v0-backup-*/
 # Production entities (not examples)
 # Keep examples/ but exclude real data
 /entities/
+/data/
 
 # Reports with sensitive data
 reports/*.json
