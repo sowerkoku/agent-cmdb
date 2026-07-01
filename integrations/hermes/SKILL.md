@@ -2,7 +2,7 @@
 name: agent-cmdb
 description: Ground AI agent responses in verified infrastructure facts — consult CMDB before asserting, reduce hallucinations, cite sources.
 category: agent-tooling
-version: 1.0.0
+version: 1.0.1
 author: Carlos Cáceres
 license: MIT
 tags: [grounding, cmdb, facts, infrastructure, hallucination-prevention]
@@ -11,7 +11,7 @@ tags: [grounding, cmdb, facts, infrastructure, hallucination-prevention]
 
 # Agent-CMDB Skill Interface
 
-**Factual memory layer for AI agents** — обеспечивает grounding с проверенными фактами инфраструктуры.
+**Factual memory layer for AI agents** — provides grounding with verified infrastructure facts.
 
 ## Purpose
 
@@ -28,9 +28,7 @@ Prevent AI agents from:
 
 ## Storage Location
 
-**Default:** `~/agent-cmdb/data/` (internal to the skill)
-
-The skill maintains its own data store, independent of external registries.
+**Default:** `~/agent-cmdb/data/` (internal to the skill, independent of external registries)
 
 ```
 ~/agent-cmdb/data/
@@ -45,87 +43,67 @@ The skill maintains its own data store, independent of external registries.
 └── secrets/          # Credentials (encrypted)
 ```
 
-**Note:** Previously used `/home/carlos/registry/` — migrated to internal storage in v1.0.1.
+Configurable via `AGENT_CMDB_DATA_DIR` environment variable.
 
 ## Contract: What This Skill Provides
 
 ### 1. Factual Grounding (NOT Opinions)
 
-Agent-CMDB returns **facts with evidence**:
-
 ```python
+# Returns facts WITH evidence, never bare assertions
 {
-  "exists": True,
-  "entity": {
-    "id": "ollama",
-    "kind": "software",
-    "status": "operational"
-  },
+  "exists": true,
+  "entity": {"id": "ollama", "kind": "software", "status": "operational"},
   "evidence": {
     "source_file": "software/ollama.yaml",
-    "validated": True,
+    "validated": true,
     "confidence_level": "verified",
     "entity_hash": "sha256:abc123..."
   }
 }
 ```
 
-**NOT**:
-```python
-{
-  "answer": "Ollama is critical"  # Opinion, not fact
-}
-```
+**NEVER returns:** `{"answer": "Ollama is critical"}` — that's an opinion, not a fact.
 
 ### 2. Explicit Uncertainty
 
 Agents know **why** to trust facts:
-
 - `confidence_level`: `verified` | `declared` | `discovered` | `inferred` | `unknown`
 - `evidence.source_type`: `declared` (human YAML) vs `discovered` (scanner) vs `inferred` (reasoning)
-- `observed_at`: When fact was verified
-- `expires_at`: When confidence expires (TTL by source type)
+- `observed_at` / `expires_at`: Freshness with TTL by source type
 
 ### 3. Temporal Awareness
 
-Facts expire. Agents can detect staleness:
-
 ```python
 if not evidence.is_fresh():
-    print("⚠️ This fact may be stale")
-    print(f"  Observed: {evidence.observed_at}")
-    print(f"  Expires: {evidence.expires_at}")
+    print(f"⚠️ Fact is {evidence.age_hours()}h old — consider re-verifying")
 ```
 
 ### 4. Change Detection
-
-Detect if facts changed between queries:
 
 ```python
 hash_before = result.evidence.entity_hash
 # ... time passes ...
 hash_after = new_result.evidence.entity_hash
-
 if hash_before != hash_after:
     print("Entity changed — re-evaluate assumptions")
 ```
 
 ## Available Tools
 
-### Grounding (Always Use Before Asserting)
-
 | Tool | Purpose | When to Use |
 |------|---------|-------------|
 | `cmdb_exists(entity_id)` | Check if entity exists | Before making ANY factual claim |
-| `cmdb_get(entity_id)` | Get full entity with evidence | When reasoning about specific entity |
+| `cmdb_get(entity_id)` | Full entity + evidence | When reasoning about specific entity |
 | `cmdb_assert(entity_id, kind, status)` | Binary validation | When decision requires specific state |
-| `cmdb_search(query)` | Find entities matching query | When entity ID unknown |
+| `cmdb_search(query)` | Find entities by name/description | When entity ID unknown |
+| `cmdb_list(kind, status)` | List entities by filter | Discovery, enumeration |
 
 ### Context (Avoid 20 Sequential Queries)
 
 | Tool | Purpose | When to Use |
 |------|---------|-------------|
-| `cmdb_context(agent_id)` | Pre-packaged context for agent | On agent startup |
+| `cmdb_context(agent_id)` | Pre-packaged agent context | On agent startup |
 
 ### Impact Analysis (Before Actions)
 
@@ -133,450 +111,97 @@ if hash_before != hash_after:
 |------|---------|-------------|
 | `cmdb_impact(entity_id)` | Dependency graph analysis | BEFORE modifying anything |
 
-### Utility
-
-| Tool | Purpose | When to Use |
-|------|---------|-------------|
-| `cmdb_list(kind, status)` | List entities by filter | Discovery, enumeration |
-
 ## Behavioral Rules (MANDATORY)
 
 ### Rule 1: Never Invent Infrastructure
-
-**WRONG:**
-> "MySQL runs on server-42" (without verifying)
-
-**CORRECT:**
 ```python
+# WRONG
+print("MySQL runs on server-42")
+
+# CORRECT
 result = cmdb_exists("mysql")
 if result.exists:
-    # Now safe to reference
-    print(f"MySQL is in CMDB")
+    print(f"MySQL is in CMDB: {result}")
 else:
-    # Explicit absence
     print("MySQL not found in CMDB — cannot verify this claim")
 ```
 
 ### Rule 2: Always Check Confidence
-
-**WRONG:**
-> "Ollama runs on server-53" (stating as absolute truth)
-
-**CORRECT:**
 ```python
 result = cmdb_get("ollama")
-evidence = result.evidence
-
-if evidence.confidence_level == "verified":
-    print("Ollama runs_on server-53 (verified by schema v1)")
-elif evidence.confidence_level == "inferred":
-    print("Ollama likely runs_on server-53 (inferred, may be incomplete)")
+if result.evidence.confidence_level == "verified":
+    print("Ollama runs_on server-53 (verified)")
 else:
-    print(f"Ollama status unknown (confidence: {evidence.confidence_level})")
+    print(f"Confidence: {result.evidence.confidence_level} — express uncertainty")
 ```
 
 ### Rule 3: Cite Sources
+```python
+# WRONG
+print("The database is MySQL")
 
-**WRONG:**
-> "The database is MySQL"
+# CORRECT
+print("According to `data/mysql-db.yaml` (validated), the database is MySQL")
+```
 
-**CORRECT:**
-> "According to `data/mysql-db.yaml` (validated), the database is MySQL"
-
-### Rule 4: Report Uncertainty Explicitly
-
-**WRONG:**
-> "I'm not sure" (vague)
-
-**CORRECT:**
-> "confidence_level='declared' — YAML exists but not validated against schema v1"
-
-### Rule 5: Check Impact Before Modifying
-
-**ALWAYS:**
+### Rule 4: Check Impact Before Modifying
 ```python
 impact = cmdb_impact("ollama")
-
 if impact["risk_indicators"]["single_point_of_failure"]:
-    print("⚠️ Ollama has no redundancy")
-    print(f"  Affected: {impact['risk_indicators']['total_dependents']} dependents")
-    print(f"  Critical: {len(impact['risk_indicators']['critical_dependents'])}")
-    print("\nRecommend: Schedule maintenance window, notify users")
-```
-
-**NEVER:**
-> Modify infrastructure without checking impact first.
-
-## Usage Examples
-
-### Example 1: Verify Before Answering
-
-**User:** "¿Qué servidor corre Ollama?"
-
-**Agent (WRONG):**
-> "Ollama corre en server-53" (assumes from memory)
-
-**Agent (CORRECT):**
-```python
-result = cmdb_get("ollama")
-
-if result.exists and result.evidence.confidence_level == "verified":
-    print(f"Ollama runs on {result.entity.metadata.get('runs_on')} (verified)")
-else:
-    print("Cannot verify — Ollama not in CMDB or evidence level low")
-```
-
-### Example 2: Action with Impact Check
-
-**User:** "Voy a actualizar Ollama"
-
-**Agent (WRONG):**
-> "Ok, procedo" (no impact analysis)
-
-**Agent (CORRECT):**
-```python
-# Step 1: Verify existence
-assertion = cmdb_assert("ollama", expected_kind="software")
-if not assertion["valid"]:
-    print(f"⚠️ Cannot proceed: {assertion['reason']}")
-    return
-
-# Step 2: Check impact
-impact = cmdb_impact("ollama")
-
-print("📊 Impact Analysis:")
-print(f"  Direct dependents: {len(impact['depends_on_me']['direct'])}")
-print(f"  Critical dependents: {len(impact['risk_indicators']['critical_dependents'])}")
-print(f"  Single point of failure: {impact['risk_indicators']['single_point_of_failure']}")
-
-if impact["risk_indicators"]["single_point_of_failure"]:
-    print("\n⚠️ RISK: No redundancy found")
-    print("Recommend: Schedule maintenance window, notify users first")
-```
-
-### Example 3: Startup with Full Context
-
-**Agent initialization:**
-
-```python
-# Single call instead of 20 sequential queries
-ctx = cmdb_context("hermes-arquitectobi")
-
-print(f"Identity: {ctx['identity']}")
-print(f"Status: {ctx['known_environment']['status']}")
-print(f"I run on: {ctx['known_environment']['runs_on']}")
-print(f"I use: {ctx['known_environment']['uses']}")
-print(f"Dependents: {ctx['dependents']}")
-print(f"Warnings: {ctx['warnings']}")
-```
-
-**Benefits:**
-- Knows itself immediately
-- Aware of dependencies
-- Warned about SPOFs
-- No hallucination risk at startup
-
-### Example 4: Temporal Reasoning
-
-**User:** "¿Esto era cierto hace una hora?"
-
-**Agent:**
-```python
-result = cmdb_get("ollama")
-evidence = result.evidence
-
-if evidence.is_fresh():
-    print(f"✓ Fact is fresh (observed {evidence.observed_at})")
-else:
-    age = evidence.age_seconds() / 3600  # hours
-    print(f"⚠️ Fact is {age:.1f} hours old")
-    print(f"  Expires: {evidence.expires_at}")
-    print("  Consider re-verifying before acting")
+    print("⚠️ No redundancy — recommend maintenance window")
 ```
 
 ## Separation of Concerns
 
-### Agent-CMDB (This Skill)
+| Agent-CMDB (This Skill) | Agent (LLM) |
+|------------------------|-------------|
+| Facts: "ollama runs_on server-53" | Interpretation: "This is a single point of failure" |
+| Evidence: Why we trust it | Weigh risks |
+| Confidence: Quality level | Make recommendations |
+| Impact: Dependency graph | Decide actions |
 
-**Provides:**
-- Facts: "ollama runs_on server-53"
-- Evidence: Why trust this fact
-- Confidence: Quality level
-- Impact: Dependency graph
+**Agent-CMDB NEVER provides:** Recommendations, opinions, decisions.
 
-**NEVER Provides:**
-- Recommendations: "Don't update Ollama"
-- Opinions: "This is risky"
-- Decisions: "You should wait"
+## Initialization
 
-### Agent (LLM)
-
-**Responsibilities:**
-- Interpret facts
-- Weigh risks
-- Make recommendations
-- Decide actions
-
-**Example Flow:**
-
-```
-Agent-CMDB → Facts + Evidence
-                 ↓
-              Agent (LLM)
-                 ↓
-         Interpretation + Decision
-                 ↓
-         "Recommend: Wait, notify users"
+```bash
+cd agent-cmdb
+pip install -e .
+python scripts/init_cmdb.py  # Creates directory structure
 ```
 
-## Anti-Patterns to Avoid
-
-### ❌ Pattern 1: Stating Facts Without Verification
+## Quick Start
 
 ```python
-# WRONG
-print("MySQL is on server-42")
+from cmdb import cmdb_exists, cmdb_get, cmdb_impact
 
-# CORRECT
-if cmdb_exists("mysql").exists:
-    print("MySQL exists in CMDB")
-else:
-    print("MySQL not in CMDB — cannot verify")
+# 1. Verify before claiming
+if cmdb_exists("ollama").exists:
+    # 2. Get full context
+    result = cmdb_get("ollama")
+    print(f"Ollama: {result.entity.status} (confidence: {result.evidence.confidence_level})")
+    
+    # 3. Check impact before changes
+    impact = cmdb_impact("ollama")
+    if impact["risk_indicators"]["single_point_of_failure"]:
+        print("⚠️ SPOF detected")
 ```
 
-### ❌ Pattern 2: Ignoring Confidence Level
+## References
 
-```python
-# WRONG
-result = cmdb_get("ollama")
-print(f"Ollama is {result.entity.status}")  # No confidence check
-
-# CORRECT
-result = cmdb_get("ollama")
-if result.evidence.confidence_level == "verified":
-    print(f"Ollama is {result.entity.status} (verified)")
-else:
-    print(f"Confidence: {result.evidence.confidence_level}")
-```
-
-### ❌ Pattern 3: Acting Without Impact Analysis
-
-```python
-# WRONG
-# User: "Delete redis"
-terminal("redis-cli shutdown")
-
-# CORRECT
-impact = cmdb_impact("redis")
-if len(impact["depends_on_me"]["direct"]) > 0:
-    print(f"⚠️ {len(impact['depends_on_me']['direct'])} entities depend on redis")
-    print("Confirm deletion?")
-```
-
-### ❌ Pattern 4: Mixing Facts with Opinions
-
-**WRONG response:**
-> "MySQL runs on server-42 and this is dangerous"
-
-(First part = fact, second part = opinion)
-
-**CORRECT response:**
-> "MySQL runs_on server-42 (source: `data/mysql.yaml`, validated)"
-> 
-> Additional observation (agent opinion):
-> "Running MySQL on a single server creates SPOF risk"
-
-## Confidence Levels Reference
-
-| Level | Meaning | When Used |
-|-------|---------|-----------|
-| `verified` | Validated against schema v1 | Human-maintained YAML passed validation |
-| `declared` | exists in source, not validated | YAML exists but schema validation pending |
-| `discovered` | Auto-discovered | Docker/K8s scan result |
-| `inferred` | Deduced by reasoning engine | Not directly observed |
-| `unknown` | Minimal/no evidence | Unknown origin |
-
-## Source Types Reference
-
-| Type | Description | TTL | Example |
-|------|-------------|-----|---------|
-| `declared` | Human-maintained YAML | None (stable) | `software/ollama.yaml` |
-| `discovered` | Auto-discovered (scanner) | 1 hour | Docker container scan |
-| `imported` | External API | 5 minutes | AWS EC2 API |
-| `inferred` | Reasoning engine | 1 minute | Deduced from logs |
+- **Full Documentation:** `README.md` — installation, entity formats, relations, confidence levels
+- **Entity Examples:** `examples/entities/` — complete working examples
+- **CLI Reference:** `scripts/cmdb --help` — `cmdb exists/get/search/impact/list`
+- **Hermes Integration:** `integrations/hermes/tools/` — `cmdb_exists`, `cmdb_get`, `cmdb_assert`, `cmdb_impact`, `cmdb_context`, `cmdb_search`
 
 ## Testing
-
-Run tests:
 
 ```bash
 cd integrations/hermes/tests
 python -m pytest
 ```
 
-## Entity YAML Format
+## Version History
 
-### Minimal Entity
-
-```yaml
-schema_version: 1
-id: my-entity
-kind: software  # asset, software, endpoint, data, network, automation
-metadata:
-  name: My Entity
-  description: What is this?
-status: operational  # operational, degraded, down, deprecated
-relations: []  # See relations format below
-```
-
-### Asset (Hardware/Server)
-
-```yaml
-schema_version: 1
-id: server-01
-kind: asset
-metadata:
-  name: Production Server 01
-  description: Main application server
-  hostname: server-01.example.com
-  cpu: Intel Xeon E5-2680
-  ram: 32GB
-  storage: 500GB SSD
-  location: Data Center A, Rack 12
-status: operational
-relations: []
-criticality:
-  business: high
-  operational: high
-  technical: medium
-```
-
-### Software (Application/Service)
-
-```yaml
-schema_version: 1
-id: postgresql
-kind: software
-metadata:
-  name: PostgreSQL Database
-  description: Primary database server
-  version: 15.2
-  port: 5432
-  protocol: tcp
-status: operational
-relations:
-- type: runs_on
-  target: server-01
-criticality:
-  business: high
-  operational: high
-  technical: high
-```
-
-### Endpoint (Network Device/IP)
-
-```yaml
-schema_version: 1
-id: device-10
-kind: endpoint
-metadata:
-  name: Device 10
-  description: Network device
-  ip_address: 192.168.1.10
-  mac_address: 00:1A:2B:3C:4D:5E
-  network: 192.168.1.0/24
-status: operational
-relations:
-- type: connected_to
-  target: network-192-168-1-0
-criticality:
-  business: low
-  operational: low
-  technical: low
-```
-
-### Network
-
-```yaml
-schema_version: 1
-id: network-192-168-1-0
-kind: network
-metadata:
-  name: Local Network
-  description: Home/Office LAN
-  cidr: 192.168.1.0/24
-  gateway: 192.168.1.1
-  dns:
-    - 192.168.1.1
-    - 8.8.8.8
-  dhcp: true
-  vlan: 100
-status: operational
-relations: []
-```
-
-### Relations Format
-
-Available relation types:
-- `runs_on`: Software runs on hardware
-- `uses`: Depends on another service
-- `connected_to`: Network connectivity
-- `reads`: Reads from data source
-- `writes`: Writes to data source
-- `calls`: Makes API/RPC calls
-- `owns`: Ownership relationship
-- `backs_up`: Backup relationship
-- `monitors`: Monitoring relationship
-
-```yaml
-relations:
-- type: runs_on
-  target: server-01
-- type: uses
-  target: postgresql
-```
-
-## Initialization
-
-Run the initialization script on first install:
-
-```bash
-cd agent-cmdb
-python scripts/init_cmdb.py
-```
-
-This creates the directory structure with `.gitkeep` files.
-
-## Examples
-
-See `examples/entities/` for complete working examples with all fields.
-
-## Future Integrations
-
-This skill is framework-agnostic. Future integrations:
-
-- **OpenClaw**: Same core, different tool registration
-- **LangGraph**: Graph-based agent workflows
-- **AutoGen**: Multi-agent scenarios
-- **CrewAI**: Role-based agent teams
-
-All share the same core: `cmdb/` factual layer.
-
-## changelog
-
-### v1.0.1 (2026-06-23)
-
-- **BREAKING:** Changed default storage from `/home/carlos/registry/` to `~/agent-cmdb/data/`
-- Skill now maintains its own internal data store
-- All tools updated: `cmdb_exists`, `cmdb_get`, `cmdb_assert`, `cmdb_impact`, `cmdb_context`
-- Added sample entities: `agent-cmdb-host`, `agent-cmdb-core`, `agent-cmdb-data-store`
-
-### v1.0.0 (2026-06-22)
-
-- Initial release
-- `cmdb_exists`, `cmdb_get`, `cmdb_search`, `cmdb_list`
-- `cmdb_assert`, `cmdb_context`
-- `cmdb_impact`
-- Evidence with `observed_at`, `expires_at`, `ttl_seconds`
-- Confidence levels: `verified`/`declared`/`discovered`/`inferred`/`unknown`
-- Source types: `declared`/`discovered`/`imported`/`inferred`
+- **v1.0.1** (2026-06-30): Independent storage at `~/agent-cmdb/data/`, configurable via `AGENT_CMDB_DATA_DIR`, `pyproject.toml` for `pip install -e .`, thin SKILL.md (~100 lines)
+- **v1.0.0** (2026-06-22): Initial release — grounding tools, evidence, confidence, impact analysis

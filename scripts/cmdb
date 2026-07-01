@@ -20,6 +20,7 @@ Examples:
 import sys
 import json
 from pathlib import Path
+import os
 
 # Add parent to path for imports
 sys.path.insert(0, str(Path(__file__).parent.parent))
@@ -27,7 +28,21 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 from cmdb import cmdb_exists, cmdb_get, cmdb_search, cmdb_impact, cmdb_list
 
 
-ENTITIES_DIR = Path("/home/carlos/registry")
+def _get_entities_dir() -> Path:
+    env_dir = os.environ.get("AGENT_CMDB_DATA_DIR")
+    if env_dir:
+        return Path(env_dir).expanduser()
+    return Path.home() / "agent-cmdb" / "data"
+
+
+ENTITIES_DIR = _get_entities_dir()
+
+
+def _result_to_legacy(result) -> dict:
+    """Convert CMDBResult to legacy dict format for CLI compatibility."""
+    if hasattr(result, 'to_dict_legacy'):
+        return result.to_dict_legacy()
+    return result
 
 
 def cmd_exists(entity_id: str):
@@ -52,41 +67,40 @@ def cmd_exists(entity_id: str):
 def cmd_get(entity_id: str):
     """Get full entity details."""
     result = cmdb_get(entity_id, ENTITIES_DIR)
+    result = _result_to_legacy(result)
     
     if not result["exists"]:
         print(f"✗ Entity '{entity_id}' NOT FOUND")
         print(f"  {result.get('reason')}")
         return 1
     
-    print(f"Entity: {result['entity']['id']}")
-    print(f"Kind: {result['entity']['kind']}")
-    print(f"Status: {result['entity']['status']}")
+    entity = result["entity"]
+    evidence = result.get("evidence", {})
+    provenance = result.get("provenance", {})
+    confidence = result.get("confidence", {})
+    query_context = result.get("query_context", {})
     
-    print(f"\nFacts:")
-    for fact in result["facts"]:
-        print(f"  • {fact}")
+    print(f"Entity: {entity['id']}")
+    print(f"Kind: {entity['kind']}")
+    print(f"Status: {entity['status']}")
     
-    print(f"\nRelations:")
-    for rel_type, targets in result["relations"].items():
-        print(f"  {rel_type}: {', '.join(targets)}")
+    print(f"\nMetadata:")
+    for key, value in entity.get("metadata", {}).items():
+        print(f"  {key}: {value}")
     
-    if result.get("criticality"):
-        crit = result["criticality"]
-        print(f"\nCriticality: {crit.get('derived_classification')}")
-        print(f"  business: {crit.get('business')}")
-        print(f"  operational: {crit.get('operational')}")
-        print(f"  technical: {crit.get('technical')}")
-    
-    prov = result["provenance"]
     print(f"\nProvenance:")
-    print(f"  source: {prov['source_file']}")
-    print(f"  validated: {prov['validated']} (schema v{prov['schema_version']})")
-    print(f"  hash: {prov['entity_hash']}")
+    print(f"  source: {provenance.get('source_file')}")
+    print(f"  validated: {provenance.get('validated')} (schema v{provenance.get('schema_version')})")
+    print(f"  hash: {provenance.get('entity_hash')}")
     
-    conf = result["confidence"]
     print(f"\nConfidence:")
-    print(f"  level: {conf['level']}")
-    print(f"  reasons: {', '.join(conf['reason'])}")
+    print(f"  level: {confidence.get('level')}")
+    print(f"  reasons: {', '.join(confidence.get('reason', []))}")
+    
+    print(f"\nQuery Context:")
+    print(f"  queried_at: {query_context.get('queried_at')}")
+    print(f"  cmdb_version: {query_context.get('cmdb_version')}")
+    print(f"  entities_dir: {query_context.get('entities_dir')}")
     
     return 0
 

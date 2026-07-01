@@ -13,11 +13,20 @@ Design principles:
 from typing import Optional
 from pathlib import Path
 from collections import defaultdict
+import os
 
 from .validator import load_entities_with_paths
 
 
-DEFAULT_ENTITIES_DIR = Path.home() / "agent-cmdb" / "data"
+def get_default_entities_dir() -> Path:
+    """Get default entities directory, configurable via AGENT_CMDB_DATA_DIR env var."""
+    env_dir = os.environ.get("AGENT_CMDB_DATA_DIR")
+    if env_dir:
+        return Path(env_dir).expanduser()
+    return Path.home() / "agent-cmdb" / "data"
+
+
+DEFAULT_ENTITIES_DIR = get_default_entities_dir()
 
 # Relation types that create dependencies (X depends on Y)
 DEPENDENCY_RELATIONS = {"uses", "reads", "writes", "runs_on", "calls"}

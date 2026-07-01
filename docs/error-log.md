@@ -18,7 +18,7 @@ Fuente única de errores comunes detectados. Consolidado de 3 versiones previas 
 
 5. **numeric host matching (54 ≠ orange-pi-54 automáticamente)** → `--host 54` requiere fuzzy matching, no string comparison.
 
-6. **Pre-push audit skipping** → риsko de datos no verificados. Cada cambio a registry/ debe validarse antes del commit.
+6. **Pre-push audit skipping** → Riesgo de datos no verificados. Cada cambio a registry/ debe validarse antes del commit.
 
 ### Relaciones y Grafos
 

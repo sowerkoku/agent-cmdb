@@ -1,9 +1,9 @@
 # Agent-CMDB
 
-**A factual memory layer for AI agents.**
+**Una capa de memoria factual para agentes de IA.**
 
-AI agents should not rely on memory to know their environment.  
-They should query a verified representation of reality before reasoning or acting.
+Los agentes de IA no deberían depender de la memoria para conocer su entorno.
+Deberían consultar una representación verificada de la realidad antes de razonar o actuar.
 
 ---
 

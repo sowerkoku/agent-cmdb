@@ -11,6 +11,7 @@ Design principles:
 - Distinguish: known fact vs. relationship vs. absence of information
 """
 
+import os
 from typing import Optional, Union
 from pathlib import Path
 from datetime import datetime
@@ -28,7 +29,15 @@ from .models import (
 )
 
 
-DEFAULT_ENTITIES_DIR = Path.home() / "agent-cmdb" / "data"
+def get_default_entities_dir() -> Path:
+    """Get default entities directory, configurable via AGENT_CMDB_DATA_DIR env var."""
+    env_dir = os.environ.get("AGENT_CMDB_DATA_DIR")
+    if env_dir:
+        return Path(env_dir).expanduser()
+    return Path.home() / "agent-cmdb" / "data"
+
+
+DEFAULT_ENTITIES_DIR = get_default_entities_dir()
 
 
 def _extract_facts(entity: dict) -> list[str]:

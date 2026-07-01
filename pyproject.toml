@@ -4,76 +4,44 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agent-cmdb"
-version = "1.0.0.dev1"
-description = "A factual grounding layer that helps AI agents query verified reality before reasoning or acting."
+version = "1.0.1"
+description = "Factual memory layer for AI agents — grounded infrastructure knowledge"
 readme = "README.md"
 license = {text = "MIT"}
-requires-python = ">=3.11"
-
-authors = [
-    {name = "Carlos Caceres", email = "car.caceresa@gmail.com"}
-]
-
-maintainers = [
-    {name = "Carlos Caceres", email = "car.caceresa@gmail.com"}
-]
-
-keywords = [
-    "cmdb",
-    "infrastructure",
-    "agents",
-    "dependency-graph",
-    "validation",
-    "netbox",
-]
-classifiers = [
-    "Development Status :: 3 - Alpha",
-    "Intended Audience :: Developers",
-    "Intended Audience :: System Administrators",
-    "License :: OSI Approved :: MIT License",
-    "Operating System :: OS Independent",
-    "Programming Language :: Python :: 3",
-    "Programming Language :: Python :: 3.11",
-    "Programming Language :: Python :: 3.12",
-    "Topic :: System :: Systems Administration",
-    "Topic :: Database :: Database Engines/Servers",
-]
+authors = [{name = "Carlos Cáceres", email = "car.caceresa@gmail.com"}]
+requires-python = ">=3.10"
 dependencies = [
     "pyyaml>=6.0",
+    "python-dateutil>=2.8",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=7.0",
-    "pytest-asyncio>=0.21",
-    "black>=24.0",
-    "ruff>=0.4.0",
+    "pytest-cov>=4.0",
+    "ruff>=0.3",
+    "mypy>=1.0",
 ]
 
 [project.scripts]
-cmdb = "cmdb.cli:main"
-
-[project.urls]
-Homepage = "https://github.com/sowerkoku/agent-cmdb"
-Documentation = "https://github.com/sowerkoku/agent-cmdb/tree/main/docs"
-Repository = "https://github.com/sowerkoku/agent-cmdb"
-Issues = "https://github.com/sowerkoku/agent-cmdb/issues"
+cmdb = "scripts.cmdb:main"
 
 [tool.setuptools.packages.find]
 where = ["."]
 include = ["cmdb*"]
 
-[tool.black]
-line-length = 100
-target-version = ["py311", "py312"]
+[tool.setuptools.package-dir]
+"" = "."
 
 [tool.ruff]
 line-length = 100
-select = ["E", "F", "W", "I", "N", "UP"]
-ignore = ["E501"]
+target-version = "py310"
+select = ["E", "F", "I", "W", "UP", "B", "C4", "SIM", "T20"]
+ignore = ["E501", "SIM103"]
 
-[tool.pytest.ini_options]
-testpaths = ["tests"]
-python_files = ["test_*.py"]
-python_functions = ["test_*"]
-asyncio_mode = "auto"
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = false
+ignore_missing_imports = true

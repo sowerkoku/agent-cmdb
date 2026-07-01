@@ -12,9 +12,17 @@ Returns:
 
 from cmdb import cmdb_context as _cmdb_context
 from pathlib import Path
+import os
 
 
-ENTITIES_DIR = Path.home() / "agent-cmdb" / "data"
+def _get_entities_dir() -> Path:
+    env_dir = os.environ.get("AGENT_CMDB_DATA_DIR")
+    if env_dir:
+        return Path(env_dir).expanduser()
+    return Path.home() / "agent-cmdb" / "data"
+
+
+ENTITIES_DIR = _get_entities_dir()
 
 
 def cmdb_context(agent_id: str) -> dict:

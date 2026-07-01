@@ -28,8 +28,17 @@ from .rules.lifecycle import validate_all_lifecycle
 # Catálogo cerrado de kinds válidos
 VALID_KINDS = {"asset", "software", "automation", "data", "endpoint"}
 
+
+def get_default_entities_dir() -> Path:
+    """Get default entities directory, configurable via AGENT_CMDB_DATA_DIR env var."""
+    env_dir = os.environ.get("AGENT_CMDB_DATA_DIR")
+    if env_dir:
+        return Path(env_dir).expanduser()
+    return Path.home() / "agent-cmdb" / "data"
+
+
 # Directorio de entidades (por defecto: ~/agent-cmdb/data/)
-DEFAULT_ENTITIES_DIR = Path.home() / "agent-cmdb" / "data"
+DEFAULT_ENTITIES_DIR = get_default_entities_dir()
 
 
 def load_entities_with_paths(entities_dir: Optional[Path] = None) -> tuple[dict, dict]:
