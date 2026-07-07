@@ -21,6 +21,12 @@ VALID_RELATION_TYPES = {
     "owns",
     "backs_up",
     "monitors",
+    "part_of",
+    "depends_on",
+    "assigned_to",
+    "belongs_to",
+    "uses_profile",
+    "listens_on",
 }
 
 # Reglas de compatibilidad: relation_type → target kinds válidos

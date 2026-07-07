@@ -10,19 +10,7 @@ Returns:
 - warnings: risk signals (SPOFs, criticality)
 """
 
-from cmdb import cmdb_context as _cmdb_context
-from pathlib import Path
-import os
-
-
-def _get_entities_dir() -> Path:
-    env_dir = os.environ.get("AGENT_CMDB_DATA_DIR")
-    if env_dir:
-        return Path(env_dir).expanduser()
-    return Path.home() / "agent-cmdb" / "data"
-
-
-ENTITIES_DIR = _get_entities_dir()
+from cmdb.api import cmdb_context as _cmdb_context
 
 
 def cmdb_context(agent_id: str) -> dict:
@@ -77,5 +65,4 @@ def cmdb_context(agent_id: str) -> dict:
     - Includes risk warnings from day one
     - Prevents hallucination about own infrastructure
     """
-    result = _cmdb_context(agent_id, ENTITIES_DIR)
-    return result
+    return _cmdb_context(agent_id)

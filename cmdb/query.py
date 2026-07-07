@@ -18,6 +18,7 @@ from datetime import datetime
 import json
 
 from .validator import load_entities, load_entities_with_paths, cmdb_validate
+from .config import get_config
 from .models import (
     Entity,
     Evidence,
@@ -30,11 +31,8 @@ from .models import (
 
 
 def get_default_entities_dir() -> Path:
-    """Get default entities directory, configurable via AGENT_CMDB_DATA_DIR env var."""
-    env_dir = os.environ.get("AGENT_CMDB_DATA_DIR")
-    if env_dir:
-        return Path(env_dir).expanduser()
-    return Path.home() / "agent-cmdb" / "data"
+    """Get default entities directory from centralized config."""
+    return get_config().data_dir
 
 
 DEFAULT_ENTITIES_DIR = get_default_entities_dir()
@@ -400,9 +398,9 @@ def cmdb_search(query: str, entities_dir: Optional[Path] = None) -> list[dict]:
     return results
 
 
-def cmdb_list(kind: Optional[str] = None, status: Optional[str] = None, entities_dir: Optional[Path] = None) -> list[dict]:
+def cmdb_list(kind: Optional[str] = None, status: Optional[str] = None, domain: Optional[str] = None, entities_dir: Optional[Path] = None) -> list[dict]:
     """
-    List entities, optionally filtered by kind and/or status.
+    List entities, optionally filtered by kind, status, and/or domain.
     
     **Agent usage:**
     Use this to enumerate all entities of a type or status.
@@ -411,21 +409,24 @@ def cmdb_list(kind: Optional[str] = None, status: Optional[str] = None, entities
     # List all software
     software = cmdb_list(kind="software")
     
-    # List all operational assets
-    assets = cmdb_list(kind="asset", status="operational")
+    # List all operational infrastructure
+    infra = cmdb_list(domain="infrastructure", status="operational")
     
     # List everything that's down
     down = cmdb_list(status="down")
     ```
     
     Args:
-        kind: Filter by kind (asset, software, automation, data, endpoint)
+        kind: Filter by kind (asset, software, procedure, etc.)
         status: Filter by status (operational, degraded, down, deprecated)
+        domain: Filter by domain (infrastructure, software, knowledge, organization)
         entities_dir: Path to entities directory
     
     Returns:
         List of entity dicts (without full relations for brevity).
     """
+    from .taxonomy import ALL_KINDS, VALID_DOMAINS, KIND_TO_DOMAIN
+    
     entities_dir = entities_dir or DEFAULT_ENTITIES_DIR
     entities, _ = load_entities_with_paths(entities_dir)
     
@@ -435,11 +436,14 @@ def cmdb_list(kind: Optional[str] = None, status: Optional[str] = None, entities
             continue
         if status and entity.get("status") != status:
             continue
+        if domain and KIND_TO_DOMAIN.get(entity.get("kind")) != domain:
+            continue
         
         # Return abbreviated entity (exclude heavy fields)
         results.append({
             "id": entity.get("id"),
             "kind": entity.get("kind"),
+            "domain": KIND_TO_DOMAIN.get(entity.get("kind")),
             "metadata": entity.get("metadata", {}),
             "status": entity.get("status"),
         })

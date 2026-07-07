@@ -16,14 +16,12 @@ from collections import defaultdict
 import os
 
 from .validator import load_entities_with_paths
+from .config import get_config
 
 
 def get_default_entities_dir() -> Path:
-    """Get default entities directory, configurable via AGENT_CMDB_DATA_DIR env var."""
-    env_dir = os.environ.get("AGENT_CMDB_DATA_DIR")
-    if env_dir:
-        return Path(env_dir).expanduser()
-    return Path.home() / "agent-cmdb" / "data"
+    """Get default entities directory from centralized config."""
+    return get_config().data_dir
 
 
 DEFAULT_ENTITIES_DIR = get_default_entities_dir()

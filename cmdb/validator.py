@@ -1,7 +1,7 @@
 """
 CMDB Validator — Agent CMDB Entity Validation
 
-Validates all entities in the CMDB against schema v1 rules.
+Validates all entities in the CMDB against schema v2 rules.
 Returns errors (blocking) and warnings (non-blocking) without raising exceptions.
 
 API:
@@ -10,7 +10,7 @@ API:
             "valid": bool,
             "errors": [{"entity_id", "field", "message"}, ...],
             "warnings": [{"entity_id", "field", "message"}, ...],
-            "stats": {"total": int, "by_kind": dict}
+            "stats": {"total": int, "by_domain": dict, "by_kind": dict}
         }
 """
 
@@ -23,18 +23,13 @@ from .rules.schema import validate_all_schema, Error as SchemaError, Warning as 
 from .rules.identity import validate_all_identity, check_duplicate_ids
 from .rules.relations import validate_all_relations
 from .rules.lifecycle import validate_all_lifecycle
-
-
-# Catálogo cerrado de kinds válidos
-VALID_KINDS = {"asset", "software", "automation", "data", "endpoint"}
+from .config import get_config
+from .taxonomy import KIND_TO_DOMAIN, DOMAIN_DISPLAY
 
 
 def get_default_entities_dir() -> Path:
-    """Get default entities directory, configurable via AGENT_CMDB_DATA_DIR env var."""
-    env_dir = os.environ.get("AGENT_CMDB_DATA_DIR")
-    if env_dir:
-        return Path(env_dir).expanduser()
-    return Path.home() / "agent-cmdb" / "data"
+    """Get default entities directory from centralized config."""
+    return get_config().data_dir
 
 
 # Directorio de entidades (por defecto: ~/agent-cmdb/data/)
@@ -208,14 +203,17 @@ def cmdb_validate(entities_dir: Optional[Path] = None) -> dict:
     # Calculate stats
     stats = {
         "total": len(entities),
+        "by_domain": {},
         "by_kind": {},
         "by_status": {},
     }
     
     for entity in entities.values():
         kind = entity.get("kind", "unknown")
+        domain = KIND_TO_DOMAIN.get(kind, "unknown")
         status = entity.get("status", "unknown")
         
+        stats["by_domain"][domain] = stats["by_domain"].get(domain, 0) + 1
         stats["by_kind"][kind] = stats["by_kind"].get(kind, 0) + 1
         stats["by_status"][status] = stats["by_status"].get(status, 0) + 1
     
@@ -242,26 +240,40 @@ def cmdb_get(entity_id: str, entities_dir: Optional[Path] = None) -> Optional[di
     return entities.get(entity_id)
 
 
-def cmdb_list(kind: Optional[str] = None, entities_dir: Optional[Path] = None) -> list:
+def cmdb_list(kind: Optional[str] = None, domain: Optional[str] = None, entities_dir: Optional[Path] = None) -> list:
     """
-    List entities, optionally filtered by kind.
+    List entities, optionally filtered by kind and/or domain.
     
     Args:
-        kind: Filter by kind (asset, software, automation, data, endpoint)
+        kind: Filter by kind (asset, software, procedure, etc.)
+        domain: Filter by domain (infrastructure, software, knowledge, organization)
         entities_dir: Path to entities directory
     
     Returns:
         List of entity dicts
     """
+    from .taxonomy import ALL_KINDS, VALID_DOMAINS
+    
     entities = load_entities(entities_dir or DEFAULT_ENTITIES_DIR)
     
-    if kind is None:
+    if kind is None and domain is None:
         return list(entities.values())
     
-    if kind not in VALID_KINDS:
-        raise ValueError(f"Unknown kind: {kind!r}. Valid kinds: {sorted(VALID_KINDS)}")
+    if kind is not None and kind not in ALL_KINDS:
+        raise ValueError(f"Unknown kind: {kind!r}. Valid kinds: {sorted(ALL_KINDS)}")
     
-    return [e for e in entities.values() if e.get("kind") == kind]
+    if domain is not None and domain not in VALID_DOMAINS:
+        raise ValueError(f"Unknown domain: {domain!r}. Valid domains: {sorted(VALID_DOMAINS)}")
+    
+    result = entities.values()
+    
+    if kind is not None:
+        result = [e for e in result if e.get("kind") == kind]
+    
+    if domain is not None:
+        result = [e for e in result if KIND_TO_DOMAIN.get(e.get("kind")) == domain]
+    
+    return list(result)
 
 
 # CLI entry point

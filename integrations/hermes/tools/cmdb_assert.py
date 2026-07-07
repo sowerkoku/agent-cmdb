@@ -7,19 +7,7 @@ Returns simple valid=True/False for agent decision-making.
 Agents reason better with binary checks than complex structures.
 """
 
-from cmdb import cmdb_assert as _cmdb_assert
-from pathlib import Path
-import os
-
-
-def _get_entities_dir() -> Path:
-    env_dir = os.environ.get("AGENT_CMDB_DATA_DIR")
-    if env_dir:
-        return Path(env_dir).expanduser()
-    return Path.home() / "agent-cmdb" / "data"
-
-
-ENTITIES_DIR = _get_entities_dir()
+from cmdb.api import cmdb_assert as _cmdb_assert
 
 
 def cmdb_assert(entity_id: str, expected_kind: str = None, expected_status: str = None) -> dict:
@@ -63,5 +51,4 @@ def cmdb_assert(entity_id: str, expected_kind: str = None, expected_status: str 
     - If valid=False, NEVER proceed without explanation
     - Report reason explicitly to user
     """
-    result = _cmdb_assert(entity_id, expected_kind, expected_status, ENTITIES_DIR)
-    return result
+    return _cmdb_assert(entity_id, expected_kind, expected_status)

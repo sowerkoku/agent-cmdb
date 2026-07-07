@@ -10,19 +10,7 @@ Returns:
 - risk_indicators: factual signals (SPOF, critical_dependents, etc.)
 """
 
-from cmdb import cmdb_impact as _cmdb_impact
-from pathlib import Path
-import os
-
-
-def _get_entities_dir() -> Path:
-    env_dir = os.environ.get("AGENT_CMDB_DATA_DIR")
-    if env_dir:
-        return Path(env_dir).expanduser()
-    return Path.home() / "agent-cmdb" / "data"
-
-
-ENTITIES_DIR = _get_entities_dir()
+from cmdb.api import cmdb_impact as _cmdb_impact
 
 
 def cmdb_impact(entity_id: str) -> dict:
@@ -85,5 +73,4 @@ def cmdb_impact(entity_id: str) -> dict:
     - Agent decides: "This is risky, recommend waiting"
     - User decides: "Proceed" or "Cancel"
     """
-    result = _cmdb_impact(entity_id, ENTITIES_DIR)
-    return result
+    return _cmdb_impact(entity_id)

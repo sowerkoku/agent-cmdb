@@ -9,19 +9,7 @@ Returns:
 - context: queried_at timestamp
 """
 
-from cmdb import cmdb_get as _cmdb_get
-from pathlib import Path
-import os
-
-
-def _get_entities_dir() -> Path:
-    env_dir = os.environ.get("AGENT_CMDB_DATA_DIR")
-    if env_dir:
-        return Path(env_dir).expanduser()
-    return Path.home() / "agent-cmdb" / "data"
-
-
-ENTITIES_DIR = _get_entities_dir()
+from cmdb.api import cmdb_get as _cmdb_get
 
 
 def cmdb_get(entity_id: str) -> dict:
@@ -69,5 +57,7 @@ def cmdb_get(entity_id: str) -> dict:
     - Use entity_hash for change detection across queries
     - Check context.queried_at for temporal reasoning
     """
-    result = _cmdb_get(entity_id, ENTITIES_DIR)
-    return result.to_dict()
+    result = _cmdb_get(entity_id)
+    if hasattr(result, 'to_dict'):
+        return result.to_dict()
+    return result

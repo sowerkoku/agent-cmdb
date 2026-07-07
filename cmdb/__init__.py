@@ -1,53 +1,35 @@
 # CMDB — Agent Configuration Management Database
 # Factual memory layer for AI agents
 
-from .validator import (
-    cmdb_validate,
-    load_entities,
-    load_entities_with_paths,
-)
-
-from .impact import (
-    cmdb_impact,
-)
-
-from .query import (
+# Public API (stable, frozen)
+# Use: from cmdb.api import cmdb_get, cmdb_exists, cmdb_impact, etc.
+from .api import (
     cmdb_exists,
     cmdb_get,
     cmdb_search,
     cmdb_list,
-)
-
-from .migrator import (
-    cmdb_migrate_dry_run,
-    cmdb_migrate_apply,
-)
-
-from .assertions import (
+    cmdb_validate,
+    cmdb_impact,
     cmdb_assert,
     cmdb_context,
 )
 
+# Configuration
+from .config import CMDBConfig, get_config, reset_config
+
 __all__ = [
-    # Query API (agent-facing)
-    "cmdb_exists",   # Check existence before asserting
-    "cmdb_get",      # Get entity with facts + evidence
-    "cmdb_search",   # Search entities
-    "cmdb_list",     # List by kind/status
-    "cmdb_assert",   # Binary validation for reasoning
-    "cmdb_context",  # Pre-packaged agent context
-    
-    # Impact analysis
-    "cmdb_impact",   # Dependency graph analysis
-    
-    # Migration
-    "cmdb_migrate_dry_run",
-    "cmdb_migrate_apply",
-    
-    # Validation
+    # Public API (use these)
+    "cmdb_exists",
+    "cmdb_get",
+    "cmdb_search",
+    "cmdb_list",
     "cmdb_validate",
+    "cmdb_impact",
+    "cmdb_assert",
+    "cmdb_context",
     
-    # Low-level utilities
-    "load_entities",
-    "load_entities_with_paths",
+    # Configuration
+    "CMDBConfig",
+    "get_config",
+    "reset_config",
 ]

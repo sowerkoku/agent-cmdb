@@ -10,19 +10,7 @@ Usage in Hermes:
               "No, Redis not found in CMDB"
 """
 
-from cmdb import cmdb_exists as _cmdb_exists
-from pathlib import Path
-import os
-
-
-def _get_entities_dir() -> Path:
-    env_dir = os.environ.get("AGENT_CMDB_DATA_DIR")
-    if env_dir:
-        return Path(env_dir).expanduser()
-    return Path.home() / "agent-cmdb" / "data"
-
-
-ENTITIES_DIR = _get_entities_dir()
+from cmdb.api import cmdb_exists as _cmdb_exists
 
 
 def cmdb_exists(entity_id: str) -> dict:
@@ -58,5 +46,4 @@ def cmdb_exists(entity_id: str) -> dict:
     - ALWAYS call this before stating "X exists" or "X does not exist"
     - NEVER assume existence from memory
     """
-    result = _cmdb_exists(entity_id, ENTITIES_DIR)
-    return result
+    return _cmdb_exists(entity_id)
