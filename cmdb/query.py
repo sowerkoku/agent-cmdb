@@ -246,6 +246,7 @@ def cmdb_get(entity_id: str, entities_dir: Optional[Path] = None) -> CMDBResult:
         kind=entity.get("kind", "unknown"),
         status=entity.get("status"),
         metadata=entity.get("metadata", {}),
+        relations=entity.get("relations", []),
     )
     
     # Compute hash
