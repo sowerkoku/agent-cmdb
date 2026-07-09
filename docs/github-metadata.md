@@ -21,12 +21,11 @@ Deterministic grounding layer and shared source of truth for AI agents. Store ve
 
 ---
 
-## Topics (add these 14 tags)
+## Topics (add these 15 tags — execute when gh CLI has active session)
 
-```
-ai-agents agentic-ai grounding knowledge-base knowledge-graph
-agent-memory llm reasoning infrastructure facts deterministic-ai
-context-engineering knowledge-kernel structured-memory cmdb
+```bash
+gh repo edit sowerkoku/knowledge-kernel --topics \
+  "knowledge-kernel,ai-agents,grounding,deterministic-grounding,shared-source-of-truth,knowledge-graph,context-engineering,structured-memory,agentic-ai,llm,knowledge-base,deterministic-ai,facts,reasoning,agent-memory"
 ```
 
 **Why these topics:**
