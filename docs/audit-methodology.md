@@ -1,157 +1,234 @@
-# Auditoría del Registry — 9 Niveles
+# Audit Methodology — Agent-CMDB Knowledge Kernel
 
-Metodología de auditoría progresiva. El Registry se audita en niveles que dependen uno del anterior.
+**Purpose:** How to audit the Kernel — validate integrity, measure coverage, detect staleness.
 
-Estado actual: ver `git log` en `/home/carlos/registry/` para historial de cambios. Los KPIs de cobertura en este documento son snapshots al momento de la auditoría, no valores actuales.
+**State:** Audits the Kernel, not the underlying infrastructure. Compare Kernel state against reality separately.
 
 ---
 
-## Nivel 1: Inventario
+## 1. cmdb_validate() — Structural Integrity
+
+Always start here. This is the Kernel's self-check:
 
 ```bash
-cd ~/.hermes/skills/registry && python3 -c "
-from registry import registry_list, registry_get
-for a in registry_list('assets'):
-    e = registry_get(a['id'])
-    n = e.get('network', {})
-    print(f\"{a['id']}: {n.get('ip','N/A')} status={e.get('status')} role={e.get('role')}\")"
-```
-
-## Nivel 2: Dependencias
-
-```bash
-cd ~/.hermes/skills/registry && python3 -c "
-from registry import registry_dependencies
-for entity in ['open-webui', 'metabase', 'sync-firebird-mysql']:
-    deps = registry_dependencies(entity, recursive=False)
-    print(f'{entity}: needs={sorted(deps[\"functional\"])}, runs_on={sorted(deps[\"infrastructure\"])}')"
-```
-
-## Nivel 3: Impact Analysis
-
-Combina dependents × criticality. ¿Qué se rompe si X falla?
-
-## Nivel 4: Recuperación y Operación
-
-```bash
-# Runbooks existentes
-for p in registry_list('procedures'):
-    e = registry_get(p['id'])
-    print(f'{p[\"id\"]}: {e.get(\"description\")}')
-
-# Entidades critical sin backup
-for cat in ['data', 'software']:
-    for item in registry_list(cat):
-        e = registry_get(item['id'])
-        if e.get('criticality', {}).get('business') == 'critical':
-            has_backup = e.get('backup', {}).get('enabled', False)
-            if not has_backup:
-                print(f'❌ {item[\"id\"]}: critical sin backup')
-```
-
-## Nivel 4.5: Recoverability
-
-Clasificación de recuperación:
-- **R** = Se reinstala (docker-compose, apt) — < 30 min
-- **RT** = Se restaura desde backup — 30-60 min
-- **RC** = Se reconstruye desde source — horas a días
-- **RP** = Se reemplaza hardware — semanas
-
-## Nivel 5: Gobernanza
-
-```bash
-cd /home/carlos/registry && git status
-cd /home/carlos/registry && git remote -v
-cd /home/carlos/registry && git log --oneline | head -10
-```
-
-Git inicializado ≠ gobernanza cerrada. Verificar: ¿Existe remote? ¿Commits disciplinados?
-
-## Nivel 6: Restauración
-
-```bash
-# Backup existe?
-ls -la /backup/mysql/*.sql.gz 2>/dev/null | tail -5
-# ¿Restore probado alguna vez?
-```
-
-**"backup existe" ≠ "restore funciona"**
-
-## Nivel 7: Verificación de Puertos
-
-```bash
-# Registry dice: registry_list('software') → network.host + network.port
-# Realidad: ssh <host> 'ss -tlnp | grep LISTEN'
-```
-
-Metodología: Registry vs Realidad. No confiar en YAML sin evidencia.
-
-## Nivel 8: Assets — IP/MAC/hostname
-
-```bash
-for ip in 192.168.1.{2,52,53,54,60,77}; do
-    timeout 2 ping -c 1 -W 1 $ip 2>/dev/null | grep "from" \
-        && echo "  $ip UP" || echo "  $ip DOWN"
-done
-```
-
-RED FLAGS: MAC `52:54:00:...` (QEMU placeholder), status `operational` sin `verified_YYYY-MM-DD`.
-
-## Nivel 9: DNS Fingerprinting (AdGuard Home)
-
-```bash
-ssh carlos@192.168.1.54 'docker exec adguardhome tail -1000 /opt/adguardhome/data/querylog.json' 2>/dev/null | python3 -c "
-import json,sys
-from collections import defaultdict
-domains_by_ip = defaultdict(set)
-for line in sys.stdin:
-    try:
-        entry = json.loads(line.strip())
-        ip = entry.get('IP','')
-        qh = entry.get('QH','')
-        if ip and qh: domains_by_ip[ip].add(qh)
-    except: pass
-for ip,doms in sorted(domains_by_ip.items()):
-    print(f'{ip}: {len(doms)} domains')
-    for d in sorted(list(doms))[:5]: print(f'  - {d}')
+CMDB_DATA_DIR=~/knowledge/agent-cmdb python3 -c "
+from cmdb.api import cmdb_validate
+v = cmdb_validate()
+print(f'Valid: {v[\"valid\"]}')
+print(f'Total entities: {v[\"stats\"][\"total\"]}')
+print(f'By kind: {v[\"stats\"][\"by_kind\"]}')
+if v['errors']: print(f'ERRORS: {v[\"errors\"]}')
+if v['warnings']: print(f'Warnings: {len(v[\"warnings\"])}')
 "
 ```
 
-**Dominios confirmados por device (junio 2026):**
-
-| Device | Dominios clave | IP |
-|---|---|---|
-| Samsung Galaxy A71 | api.whatsapp.net, b-graph.facebook.com, api.revenuecat.com | .128 |
-| Xiaomi Router | api.miwifi.com, NTP pool, baidu.com | .101 |
-| Xiaomi Phone | api.ad.intl.xiaomi.com, spot-pa.googleapis.com | .140 |
-| Android TikTok | analytics.us.tiktok.com, a.gdflpr.com | .144 |
-| Smart TV | encrypted-tbn*.gstatic.com, discover-pa.googleapis.com | .148 |
-| Windows PC | login.live.com, edgedl.me.gvt1.com, chrome.cloudflare-dns.com | .4 |
-| Linux server (Hermes) | api.telegram.org, models.dev, www.schemastore.org | .52 |
-
-**Limitaciones:**
-- Devices con DNS externo (8.8.8.8) no aparecen en querylog
-- Un device puede tener múltiples OS fingerprints (apps cruzadas)
-- Puerto 5335 en .54 es localhost-only, servicio desconocido
-
-**Router credentials:** `Support:Bk8nKiXs` en 192.168.1.1:80
+`cmdb_validate()` checks:
+- YAML schema validity
+- Broken relations (target doesn't exist)
+- Duplicate IDs
+- Orphan endpoints (endpoint with no `exposed_by` relation)
+- Missing required fields (id, kind, metadata.name, evidence)
 
 ---
 
-## Cobertura KPIs (snapshot auditoría 2026-06-21)
+## 2. Relation Integrity Audit
 
-| Categoría | Cobertura | Gap Principal |
-|---|---|---|
-| Assets (servidores) | ~95% | .60 down, status no actualizado |
-| Software | ~70% | OpenClaw system no modelado |
-| Automation | ~40% | sync_CICO fuera del Registry |
-| Backups reales | ~30% | Firebird backups en PCs no documentados |
-| Procedimientos | ~20% | Conocimiento en bitacora/ no formalizado |
+Check for broken relations — relations that point to non-existent entities:
 
-**Lo que existe en realidad pero NO en Registry:**
-- `sync_CICO` (carpeta + cron) — NO ESTÁ
-- `sync_bridge_copia`, `sync_bridge_copia2` — NO ESTÁN
-- Hermes profiles en .53 — PARCIAL (agents/ en .53, endpoints/ en .54)
-- Firebird backup en PC(.2) y PC personal — NO ESTÁ
+```bash
+CMDB_DATA_DIR=~/knowledge/agent-cmdb python3 -c "
+from cmdb.api import cmdb_list, cmdb_validate
 
-**Metodología:** Comparar evidencia observada contra Registry, NO preguntar memoria. Fuentes: ping, docker ps, systemctl, crontab, ps aux, find .git.
+# Check each entity's relations
+for e in cmdb_list():
+    for rel in e.get('relations', []):
+        target = rel['target']
+        # Check if target exists
+        exists = any(x['id'] == target for x in cmdb_list())
+        if not exists:
+            print(f'BROKEN: {e[\"id\"]} --[{rel[\"type\"]}]--> {target}')
+"
+```
+
+---
+
+## 3. Stale Evidence Audit
+
+Which entities have evidence older than their domain TTL?
+
+```bash
+CMDB_DATA_DIR=~/knowledge/agent-cmdb python3 -c "
+from cmdb.api import cmdb_list, cmdb_get
+from datetime import datetime, timezone
+
+now = datetime.now(timezone.utc)
+for e in cmdb_list(domain='infrastructure'):
+    fact = cmdb_get(e['id'])
+    if not fact.evidence.is_fresh():
+        ttl_remaining = fact.evidence.time_to_expiry_seconds()
+        print(f'STALE: {e[\"id\"]} ({ttl_remaining}s ago)')
+"
+```
+
+---
+
+## 4. Fact Coverage Audit
+
+Can the Kernel answer the key operational questions?
+
+| Question | Kernel answer requires |
+|----------|----------------------|
+| "Where does X run?" | `kind: software` with `runs_on` relation |
+| "What runs here?" | `kind: asset` with dependents via `runs_on` |
+| "How to reach X?" | `kind: endpoint` with `host/port/protocol` in metadata |
+| "What breaks if X fails?" | `cmdb_impact(X)` with `depends_on_me` |
+| "What does X depend on?" | `cmdb_impact(X)` with `depends_on` |
+
+```bash
+CMDB_DATA_DIR=~/knowledge/agent-cmdb python3 -c "
+from cmdb.api import cmdb_list, cmdb_get
+
+# Check: all software should have runs_on
+software = cmdb_list(kind='software')
+missing_runs_on = [e['id'] for e in software
+                   if not any(r['type'] == 'runs_on' for r in e.get('relations', []))]
+print(f'Software missing runs_on: {missing_runs_on}')
+
+# Check: all endpoints should have exposed_by
+endpoints = cmdb_list(kind='endpoint')
+missing_exposed_by = [e['id'] for e in endpoints
+                       if not any(r['type'] == 'exposed_by' for r in e.get('relations', []))]
+print(f'Endpoints missing exposed_by: {missing_exposed_by}')
+
+# Check: all assets should have at least one software running on them
+assets = cmdb_list(kind='asset')
+for a in assets:
+    deps = cmdb_impact(a['id'])['depends_on_me']['direct']
+    has_software = any(d['kind'] == 'software' for d in deps)
+    if not has_software:
+        print(f'Asset {a[\"id\"]} has no software running on it')
+"
+```
+
+---
+
+## 5. Endpoint Audit
+
+Endpoints should have host/port/protocol in metadata:
+
+```bash
+CMDB_DATA_DIR=~/knowledge/agent-cmdb python3 -c "
+from cmdb.api import cmdb_list
+
+for e in cmdb_list(kind='endpoint'):
+    m = e.get('metadata', {})
+    missing = [f for f in ['host', 'port', 'protocol'] if f not in m]
+    if missing:
+        print(f'ENDPOINT INCOMPLETE: {e[\"id\"]} missing {missing}')
+"
+```
+
+---
+
+## 6. Impact Graph Audit
+
+Verify the impact graph is connected — no orphaned clusters:
+
+```bash
+CMDB_DATA_DIR=~/knowledge/agent-cmdb python3 -c "
+from cmdb.api import cmdb_list, cmdb_impact
+
+# Every entity should appear in at least one impact chain
+all_ids = {e['id'] for e in cmdb_list()}
+
+connected = set()
+for e in cmdb_list():
+    impact = cmdb_impact(e['id'])
+    for cat in ['depends_on', 'depends_on_me']:
+        for level in ['direct', 'transitive']:
+            for d in impact.get(cat, {}).get(level, []):
+                connected.add(d['id'])
+                connected.add(e['id'])
+
+orphans = all_ids - connected
+if orphans:
+    print(f'ORPHAN ENTITIES (no impact relations): {orphans}')
+else:
+    print('All entities participate in at least one impact relation')
+"
+```
+
+---
+
+## 7. Critical Entity Audit
+
+Check that all HIGH-criticality entities have:
+- Evidence with HIGH confidence
+- No broken relations
+- At least one way to recover (backup, redundancy)
+
+```bash
+CMDB_DATA_DIR=~/knowledge/agent-cmdb python3 -c "
+from cmdb.api import cmdb_list, cmdb_get
+
+for e in cmdb_list():
+    crit = e.get('criticality', {})
+    if crit.get('business') == 'high':
+        fact = cmdb_get(e['id'])
+        issues = []
+        if fact.evidence.confidence_level != 'HIGH':
+            issues.append(f'confidence={fact.evidence.confidence_level}')
+        if e.get('status') == 'down':
+            issues.append('status=down')
+        if not any(r['type'] in ('backs_up', 'runs_on') for r in e.get('relations', [])):
+            if e.get('kind') == 'data':
+                issues.append('no backup relation')
+        if issues:
+            print(f'CRITICAL WARNING {e[\"id\"]}: {\" | \".join(issues)}')
+"
+```
+
+---
+
+## 8. Dataset vs Reality (External Audit)
+
+The Kernel audits itself. Validating Kernel vs real infrastructure requires separate tooling:
+
+```bash
+# Kernel says: ollama runs on orange-pi-54, exposes ollama-api
+# Reality check via SSH:
+ssh carlos@192.168.1.54 'ss -tlnp | grep 11434'
+ssh carlos@192.168.1.54 'curl -s http://localhost:11434/api/tags'
+```
+
+This is the job of the **Runtime Discovery skill** — not part of the Kernel itself.
+
+---
+
+## 9. Coverage KPIs
+
+Measure what percentage of real infrastructure is captured in the Kernel:
+
+| Category | Metric | How to measure |
+|----------|--------|----------------|
+| **Entity coverage** | % of real entities in Kernel | Compare cmdb_list() against discovered reality |
+| **Relation coverage** | % of relations modeled | cmdb_impact() returns populated graphs |
+| **Evidence freshness** | % of facts within TTL | Count stale vs fresh via is_fresh() |
+| **Confidence quality** | % of entities with HIGH confidence | cmdb_validate() stats |
+
+---
+
+## Change history
+
+| Date | Version | Change |
+|------|---------|--------|
+| 2026-06-22 | draft | Initial 9-level audit for Registry era |
+| 2026-07-07 | v1.2 | Complete rewrite for Knowledge Kernel: cmdb_validate(), entity.runs_on, exposes/exposed_by, freshness audit, coverage KPIs |
+
+---
+
+## References
+
+- [`governance.md`](./governance.md) — What enters the Kernel
+- [`domain-model.md`](./domain-model.md) — Entity responsibilities
+- [`schema-v1.md`](./schema-v1.md) — Schema validation rules

@@ -1,81 +1,319 @@
-# Error Log — Registry Skill
+# Failure Modes — Agent-CMDB
 
-Fuente única de errores comunes detectados. Consolidado de 3 versiones previas en una sola lista.
+**Purpose:** Document recurring failure patterns and their corrections. This is not a log — it is a catalog.
 
 ---
 
-## Errores Comunes — 30 errores
+## 1. Knowledge vs Inference
 
-### Ownership y Asunciones
+### Error: Storing inference in metadata
 
-1. **Asumir localhost sin consultar Registry** → Primero ping/scan del host real. Registry tiene `runs_on: [asset_id]` que indica la máquina, no localhost.
+**Symptom:**
+```python
+# ❌ WRONG — metadata.host should come from observation, not inference
+metadata:
+  runs_on: server-53     # inferred from training data
+  inferred_from: "LLM memory"
+```
 
-2. **Usar skill Registry ANTES de asumir** → El agente debe consultar Registry antes de asumir IPs, ubicaciones, servicios. Ejemplo: "No usaste la skill registry" = error del agente.
+**Correction:**
+```python
+# ✅ RIGHT — runs_on is computed from relations at query time
+entity.runs_on   # → "orange-pi-54" — from relations[], not metadata
+```
 
-3. **Asumir que NAS existe cuando es POS** → Verificar tipo de cada asset. En este proyecto: .2 = servidor-pos (Windows), NO es NAS.
+**Rule:** `metadata.runs_on` does not exist. Use the `runs_on` relation and call `entity.runs_on`.
 
-4. **Asumir puertos de memoria** → Portainer decía 9000, realidad 9443. phpMyAdmin decía 8080, realidad 80. Lesson: ports cambian (Docker reconfig, HTTPS migration). Validar con `curl -I http://host:port` antes de confiar.
+---
 
-5. **numeric host matching (54 ≠ orange-pi-54 automáticamente)** → `--host 54` requiere fuzzy matching, no string comparison.
+## 2. Relations Pointing to Literals
 
-6. **Pre-push audit skipping** → Riesgo de datos no verificados. Cada cambio a registry/ debe validarse antes del commit.
+### Error: `target` as a literal IP or hostname
 
-### Relaciones y Grafos
+**Symptom:**
+```yaml
+# ❌ WRONG — target must be an entity ID
+relations:
+  - type: runs_on
+    target: 192.168.1.54     # literal IP — not an entity
+```
 
-7. **Mezclar runs_on con depends_on** → runs_on=host físico (1-hop lookup), depends_on=runtime/logical (BFS transitivo). Son consultas DISTINTAS.
+**Correction:**
+```yaml
+# ✅ RIGHT — target is an entity ID
+relations:
+  - type: runs_on
+    target: orange-pi-54      # asset entity
+```
 
-8. **Contenedores con docker en runs_on** → Container corre EN orange-pi-54, DEPENDE DE docker para ejecutarse. Docker va en `depends_on`, no en `runs_on`.
+**Rule:** Relations always point to entity IDs. Never literals.
 
-9. **DBs con runs_on: [mysql]** → DB existe DENTRO de MySQL, no "corre en" MySQL como host. Corregido: `runs_on: [orange-pi-54]` + `depends_on: [mysql]`.
+---
 
-10. **Firebird como runs_on de firebird-eleventa** → Firebird es software, no host. Corregido: `runs_on: [servidor-pos]`.
+## 3. Endpoint as URL
 
-11. **Mezclar impact funcional con co-ubicación** → Functional e infrastructure son consultas DISTINTAS. En audit de impacto, reportarlas SEPARADO, nunca sumarlas en "total afectados".
+### Error: Storing full URL in metadata without separating identity
 
-12. **Conflar categorías de recuperación** — reinstalable ≠ restaurable ≠ fuente de verdad ≠ fundacional. Usar clasificación R/RT/RC/RP antes de priorizar runbooks.
+**Symptom:**
+```yaml
+# ❌ WRONG — mixes identity (name) with observation (connection details)
+id: ollama-api
+metadata:
+  url: http://192.168.1.54:11434
+```
 
-### Backup y Recuperabilidad
+**Correction:**
+```yaml
+# ✅ RIGHT — ID is stable identity; host/port/protocol are observed facts
+id: ollama-api
+kind: endpoint
+metadata:
+  host: 192.168.1.54    # observed — may change
+  port: 11434           # observed — may change
+  protocol: http       # observed — may change
+```
 
-13. **Claim "backup.enabled=false" sin verificar realidad** → El usuario puede tener backups manuales fuera del modelo. El Registry subestimaba la capacidad real. Verificar con el usuario, no con el YAML.
+**Rule:** An endpoint ID is its **communication identity**. Tomorrow it can be `https://ollama.internal:443` and still be `ollama-api`.
 
-14. **Concluir "es irrecuperable"** → Lo correcto es "recuperabilidad no demostrada" hasta verificar evidencia con el dueño.
+---
 
-15. **"backup existe" ≠ "restore funciona"** → Backup documentado no significa que se haya probado restaurar. Restore probado requiere evidencia operacional.
+## 4. Stale Examples in Documentation
 
-### YAML y Archivos
+### Error: Using obsolete entity names or IPs
 
-16. **Colones en campos YAML `name:`** → `name: Hermes (profile: arquitectobi)` causa `YAMLError: mapping values are not allowed`. Solución: usar comillas o evitar dos puntos internos.
+**Symptom:**
+```python
+# ❌ WRONG — references old Infrastructure
+entity.runs_on  # → server-53 (doesn't exist)
+cmdb_get("server-52")  # doesn't exist
+```
 
-17. **Patch tool con old_string idéntico** → Cuando el old_string a buscar aparece múltiples veces y solo una debe cambiarse, hay que incluir contexto único. Usar `write_file` si no hay contexto suficiente.
+**Correction:**
+```python
+# ✅ RIGHT — use current entity IDs
+cmdb_get("ollama").entity.runs_on  # → orange-pi-54
+cmdb_get("orange-pi-54")           # current asset
+```
 
-18. **IDs duplicados entre categorías bloquean el indexer** → Si `metabase` existe en `software/` Y en `endpoints/` con el mismo `id:`, el `_by_id[eid]` sobrescribe la primera entrada. Fix: sufijos diferenciadores (`metabase-ui.yaml`).
+**Rule:** Always use entity IDs verified against the current Kernel.
 
-19. **Categoría nueva no reconocida hasta actualizar REGISTRY_CATEGORIES** → El indexer tiene `REGISTRY_CATEGORIES` hardcodeado. Sin agregarlo, `registry_validate()` muestra stats incorrectas. Fix: editar `indexer.py` línea ~20.
+---
 
-20. **Endpoints sin campo `name`** → `registry_list('endpoints')` hace `_by_id[eid]["name"]` y lanza KeyError. El campo `name` es requerido por el indexer. Mínimo 3 caracteres.
+## 5. `runs_on` vs `uses` Confusion
 
-### Red y Servicios
+### Error: Putting a dependency in `runs_on`
 
-21. **Curl localhost para validar docker port-mapping** → Containers con `--network=host` no tienen port bindings visibles en `docker ps`. Usar `ss -tlnp` en el host + curl.
+**Symptom:**
+```yaml
+# ❌ WRONG — docker is software, not the host
+relations:
+  - type: runs_on
+    target: docker       # docker is not a host
+```
 
-22. **No detectar containers en network=host** → Containers con `--network=host` no aparecen en `docker ps --format "{{.Ports}}"`. Puertos: 3000 (metabase), 8080 (open-webui), 80 (phpmyadmin), 8083 (adguardhome), 53 (unbound). Verificar con `ss -tlnp`.
+**Correction:**
+```yaml
+# ✅ RIGHT — docker is a dependency (software), not the host
+relations:
+  - type: runs_on
+    target: orange-pi-54     # physical host
+  - type: uses
+    target: docker          # software dependency
+```
 
-23. **AdGuard Home paths requieren docker exec** → El querylog está dentro del container, no en el host. `docker exec adguardhome cat /opt/adguardhome/data/querylog.json`.
+**Rule:** `runs_on` always points to `kind: asset`. Use `uses` for software dependencies.
 
-24. **`network.host: localhost` en servicios remotos** → Regla: `network.host` = IP del asset en `runs_on`, nunca localhost salvo que el servicio corra en la máquina donde se ejecutan las queries.
+---
 
-### DNS y Fingerprinting
+## 6. Database as runs_on Target
 
-25. **Fingerprint de DNS no confirmado = no asumir tipo de dispositivo** → RevenueCat apareció como "iPhone" pero .128 era Samsung Galaxy A71. Xiaomi MiWiFi apareció como "laptop" pero .101 era router. Solo la evidencia del usuario o acceso físico confirma.
+### Error: DB is not a host
 
-26. **DNS fingerprinting: MiWiFi + NTP pool + baidu = router, no laptop** → Si fuera laptop, tendría browser queries (chrome, login.live.com). La ausencia de browser activity indica device sin GUI.
+**Symptom:**
+```yaml
+# ❌ WRONG — MySQL is software, not a host
+relations:
+  - type: runs_on
+    target: mysql
+```
 
-27. **No todo en loopback 127.0.0.x es el mismo servidor** → .54 tiene Unbound en `127.0.0.54:53` (network=host container). .53 tiene systemd-resolved en `127.0.0.53:53`. Son servicios distintos.
+**Correction:**
+```yaml
+# ✅ RIGHT — database runs on an asset, depends on MySQL
+relations:
+  - type: runs_on
+    target: orange-pi-54
+  - type: uses
+    target: mysql
+```
 
-28. **Puerto 5335 en .54 es localhost-only** → Escucha en `127.0.0.1:5335`, no expuesto externamente. No aparece en docker ps. Identificar via `ss -tlnp` vía SSH directo al host.
+**Rule:** Databases are `kind: data` or `kind: software`. They execute on hosts via `runs_on`, not as hosts.
 
-### Git y Gobernanza
+---
 
-29. **Git initialized ≠ gobernanza cerrada** → Git resuelve historial/reversión/diff. No resuelve: remote push, backup externo, proceso disciplinado.
+## 7. Confusing `depends_on` with `runs_on`
 
-30. **Assets pending-identify → usar `status: pending-identify`** → MAC placeholder `52:54:00:...` indica QEMU/VM, no hardware real. Verificar con `arp -an` y SSH directo.
+### Error: Using generic `depends_on` relation
+
+**Symptom:**
+```yaml
+# ❌ WRONG — old Registry format
+depends_on:
+  - mysql
+  - ollama
+```
+
+**Correction:**
+```yaml
+# ✅ RIGHT — typed relations with semantic meaning
+relations:
+  - type: uses
+    target: mysql
+  - type: uses
+    target: ollama
+```
+
+**Rule:** Always use typed relations. `runs_on` is physical location (1-hop, not transitive). `uses` is functional dependency (BFS, transitive).
+
+---
+
+## 8. Missing Evidence Block
+
+### Error: Entity without `evidence` field
+
+**Symptom:**
+```yaml
+# ❌ WRONG — no evidence means unverified
+id: ollama
+kind: software
+# no evidence block
+```
+
+**Correction:**
+```yaml
+# ✅ RIGHT — evidence proves this fact is verified
+evidence:
+  source_file: software/ollama.yaml
+  confidence_level: HIGH
+  confidence_basis: [SCHEMA_VALIDATED, HUMAN_DECLARED]
+  observed_at: "2026-07-07T00:00:00Z"
+```
+
+**Rule:** Every entity must have an `evidence` block. If it doesn't, the agent must treat it as UNKNOWN confidence.
+
+---
+
+## 9. Storing `expires_at`
+
+### Error: Manually setting expiration date
+
+**Symptom:**
+```yaml
+# ❌ WRONG — expires_at would go stale
+evidence:
+  observed_at: "2026-07-07T00:00:00Z"
+  expires_at: "2026-07-08T00:00:00Z"    # manually set — will be wrong
+```
+
+**Correction:**
+```yaml
+# ✅ RIGHT — freshness is derived at query time
+evidence:
+  observed_at: "2026-07-07T00:00:00Z"
+  # expires_at is computed: observed_at + domain TTL
+```
+
+**Rule:** `expires_at` is never stored. Always computed from `observed_at + domain TTL`.
+
+---
+
+## 10. Duplicate Entity IDs
+
+### Error: Same ID in different kind folders
+
+**Symptom:**
+```
+software/metabase.yaml   → id: metabase
+endpoint/metabase.yaml   → id: metabase   # conflict!
+```
+
+**Correction:**
+```yaml
+# Use distinct IDs that reflect the entity role
+software/metabase.yaml       → id: metabase
+endpoint/metabase-ui.yaml    → id: metabase-ui
+```
+
+**Rule:** IDs must be unique across the entire Kernel. Use suffixes for endpoint variants.
+
+---
+
+## 11. Assuming Localhost for Remote Services
+
+### Error: Using localhost in network fields
+
+**Symptom:**
+```yaml
+# ❌ WRONG — ollama runs on orange-pi-54, not local
+metadata:
+  network:
+    host: localhost
+    port: 11434
+```
+
+**Correction:**
+```yaml
+# ✅ RIGHT — host is the asset where the service runs
+relations:
+  - type: runs_on
+    target: orange-pi-54
+# host comes from the asset's metadata
+```
+
+**Rule:** Never use `localhost` for services running on remote assets. Query `cmdb_get(asset_id)` for the real host.
+
+---
+
+## 12. Not Checking `cmdb_validate()` Before Push
+
+### Error: Pushing YAML with broken relations
+
+**Symptom:** `cmdb_validate()` returns errors after commit.
+
+**Correction:**
+```bash
+# Always run before commit
+CMDB_DATA_DIR=~/knowledge/agent-cmdb python3 -c "
+from cmdb.api import cmdb_validate
+v = cmdb_validate()
+assert v['valid'], f'Validation failed: {v[\"errors\"]}'
+print('✅ cmdb_validate passed')
+"
+```
+
+---
+
+## 13. `REVERSE_DEPENDENCY_RELATIONS` Defined But Unused
+
+### Error: Declaring reverse relations but not implementing the logic
+
+**Symptom:** `REVERSE_DEPENDENCY_RELATIONS` in code but `_find_dependents` only checks `DEPENDENCY_RELATIONS`.
+
+**Correction:** The reverse relations (`exposed_by`, `hosts`) are handled by computing them from the graph. The Kernel traverses relations in both directions by checking if `target → current_id` with relation type in `DEPENDENCY_RELATIONS`.
+
+**Rule:** Always verify that declared constants are actually used in the logic.
+
+---
+
+## Change history
+
+| Date | Version | Change |
+|------|---------|--------|
+| 2026-07-07 | v1.2 | Full rewrite: Registry-era patterns removed, all references updated to cmdb API, entity.runs_on, endpoint identity, freshness as derived |
+
+---
+
+## References
+
+- [`schema-v1.md`](./schema-v1.md) — Schema validation rules
+- [`domain-model.md`](./domain-model.md) — Entity responsibilities

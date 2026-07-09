@@ -1,123 +1,232 @@
-# Usage Patterns — Registry Skill
+# Usage Patterns — Agent-CMDB
 
-Patrones de consulta validados. Narrativa operativa — el SKILL.md tiene la API mínima.
+**Purpose:** Validated query patterns. The SKILL.md has the minimal API reference.
 
 ---
 
-## Diagnóstico de Infraestructura Remota
+## 1. Core Pattern: Fact Grounding
 
-**Orden obligatorio** al diagnosticar un servicio en una máquina remota:
+Every agent interaction follows this contract:
 
 ```
-1. registry_list('assets')       → Ver todas las máquinas disponibles
-2. registry_get(asset_id)        → Obtener IP, puerto SSH, hostname
-3. VERIFICAR RED (ping/puerto)    → Confirmar conectividad antes de asumir
-4. registry_dependents(id)        → Entender qué depende de este servicio
-5. CONECTAR al servicio real      → Solo después de verificar 1-4
+User question
+      │
+      ▼
+Does this require facts?
+      │
+      ▼
+cmdb_get("entity-id")       ← check before making any claim
+      │
+      ▼
+Entity found? → Answer with evidence
+Entity not found → "I cannot verify this — not in the Kernel"
 ```
 
-**PITFALL CRÍTICO:** No asumir que el servicio está local. El Registry indica `runs_on: [asset_id]` — si el asset no es la máquina actual, verificar conectividad de red primero.
+**Always query before asserting.** If the Kernel does not contain a fact, the agent must say so — not infer.
 
-**MAL:**
+---
+
+## 2. Fact Grounding Pattern
+
+**❌ Before Agent-CMDB**
+```
+Agent: "I think Ollama runs on server-53"
+(Infers from training data — often wrong)
+```
+
+**✅ With Agent-CMDB**
+```python
+# Step 1: Verify
+fact = cmdb_get("ollama")
+if not fact.entity:
+    print("Cannot verify — Ollama not in the Kernel")
+
+# Step 2: Ground response
+print(f"Ollama runs on {fact.entity.runs_on}")  # → orange-pi-54
+print(f"Confidence: {fact.evidence.confidence_level}")
+print(f"Evidence: {fact.evidence.confidence_basis}")
+```
+
+---
+
+## 3. Impact Analysis Pattern
+
+**Always check before modifying anything.**
+
+```python
+# What breaks if I change Ollama?
+impact = cmdb_impact("ollama")
+print(f"Direct dependents: {impact['depends_on_me']['direct']}")
+print(f"SPOF: {impact['risk_indicators']['single_point_of_failure']}")
+```
+
+**Real example — port failure:**
+```python
+impact = cmdb_impact("ollama-api")
+# Ollama-api exposed_by: ollama
+# Ollama used_by: open-webui
+# SPOF: True
+# → Answer: "Closing port 11434 removes Ollama → OpenWebUI loses its LLM backend"
+```
+
+---
+
+## 4. Lazy Integration Pattern
+
+The Kernel is **not loaded at startup**. It is consulted only when needed.
+
+```
+Agent startup:  No cmdb calls
+User question:  Needs facts?
+      │
+      ▼ Yes
+cmdb_get() or cmdb_list()
+      │
+      ▼
+Answer with grounded facts
+```
+
+This keeps startup fast and ensures every query reflects current Kernel state.
+
+---
+
+## 5. Context Loading Pattern
+
+For agent initialization with full self-knowledge:
+
+```python
+from cmdb.api import cmdb_context
+
+ctx = cmdb_context("hermes-arquitectobi")
+print(f"I am: {ctx['identity']}")
+print(f"I run on: {ctx['known_environment']['runs_on']}")
+print(f"I use: {ctx['known_environment']['uses']}")
+print(f"Dependents: {ctx['dependents']}")
+print(f"Warnings: {ctx['warnings']}")  # stale facts, broken relations
+```
+
+---
+
+## 6. Query by Kind / Domain / Status
+
+```python
+# All operational infrastructure software
+cmdb_list(kind="software", domain="infrastructure", status="operational")
+
+# All endpoints
+cmdb_list(kind="endpoint")
+
+# All assets
+cmdb_list(kind="asset")
+
+# Find entities by name/description/tags
+cmdb_search("ollama")
+```
+
+---
+
+## 7. Multi-Instance Pattern
+
+When one software runs in multiple configurations, **each instance = separate entity**:
+
+```yaml
+# hermes-arquitectobi.yaml
+id: hermes-arquitectobi
+kind: software
+domain: infrastructure
+metadata:
+  profile: arquitectobi
+relations:
+  - type: runs_on
+    target: server-192-168-1-52
+```
+
+**Rules:**
+1. Each instance = separate entity with unique ID
+2. Naming: `<name>-<config>` (e.g., `hermes-arquitectobi`, not `hermes-gateway-52`)
+3. Config variant stored in `metadata`, not in the ID
+
+---
+
+## 8. Network Diagnosis on Remote Assets
+
+**Correct order** when diagnosing a service on a remote machine:
+
+```
+1. cmdb_list(kind="asset")              → list all machines
+2. cmdb_get(asset_id)                   → get IP, SSH port, hostname
+3. VERIFY NETWORK (ping/port scan)      → confirm connectivity BEFORE assuming
+4. cmdb_impact(service_id)              → understand what depends on this service
+5. THEN connect to the real service      → only after verifying 1-4
+```
+
+**CRITICAL PITFALL:** Do not assume a service is local. The Kernel tells you `runs_on: [asset_id]` — if the asset is not the current machine, verify network connectivity first.
+
 ```bash
-mysql -u root -e "SHOW DATABASES"   # Fallo si MySQL está en 192.168.1.54
-```
+# BAD — assumes MySQL is local
+mysql -u root -e "SHOW DATABASES"
 
-**BIEN:**
-```bash
-# 1. Obtener ubicación
-cd ~/.hermes/skills/registry && python3 -c "
-from registry import registry_get
-mysql = registry_get('mysql')
-print(f\"Host: {mysql['network']['host']}:{mysql['network']['port']}\")"
+# GOOD — first query the Kernel
+python3 -c "
+from cmdb.api import cmdb_get
+mysql = cmdb_get('mysql')
+print(f'Host: {mysql.entity.runs_on}')
+"
 
-# 2. Verificar conectividad
+# Then verify connectivity before connecting
 ping -c 1 -W 2 192.168.1.54
 for port in 22 3306; do
     timeout 2 bash -c "echo >/dev/tcp/192.168.1.54/$port" 2>/dev/null \
-        && echo "Port $port: ABIERTO" || echo "Port $port: cerrado"
+        && echo "Port $port: OPEN" || echo "Port $port: CLOSED"
 done
 
-# 3. Solo entonces conectar
+# Then connect
 mysql -h 192.168.1.54 -u agente -p -e "SHOW DATABASES"
 ```
 
 ---
 
-## Múltiples Instancias de un Servicio
+## 9. Asset Dependency Query
 
-Cuando un software corre en múltiples configuraciones (ej: Hermes con 5 profiles distintos), **cada instancia = entidad separada**:
+What runs on a specific asset?
 
-```yaml
-# hermes-arquitectobi.yaml
-id: hermes-arquitectobi
-category: software
-config:
-  profile: arquitectobi
-network:
-  host: 192.168.1.52
-  port: 8000
+```python
+all_software = cmdb_list(kind="software")
+running_here = [
+    e["id"] for e in all_software
+    if any(
+        r["type"] == "runs_on" and r["target"] == "orange-pi-54"
+        for r in e.get("relations", [])
+    )
+]
 ```
-
-**Reglas:**
-1. Cada instancia = entidad separada con ID único desambiguado
-2. Naming: `<nombre>-<config>` (ej: `hermes-arquitectobi`, NO `hermes-gateway-52`)
-3. Campo `config.profile` o similar que identifique la variante
-4. Evitar IDs genéricos que collapan múltiples instancias
-
-**Validación:** `registry_validate()` debe pasar sin errores YAML.
 
 ---
 
-## Análisis de Impacto antes de Apagar un Servicio
+## 10. Container Port Discovery
+
+Containers with `--network=host` do not appear in `docker ps --format "{{.Ports}}"`. Verify with `ss -tlnp` on the host:
 
 ```bash
-# ¿Qué se rompe si apago MySQL?
-cd ~/.hermes/skills/registry && python3 -c "
-from registry import registry_dependents
-deps = registry_dependents('mysql', recursive=True)
-print(f'Si MySQL cae, se afectan: {deps[\"functional\"]}')"
+ssh carlos@192.168.1.54 'ss -tlnp | grep -E "LISTEN" | grep -v "127.0.0"'
 ```
 
----
+Known ports on orange-pi-54 (verified with ss + curl):
 
-## Endpoints — Cuándo Usar la Categoría
-
-`endpoints/` responde preguntas que `software/` solo NO puede:
-- "¿Cuál es la URL completa de Metabase?" → `registry_get('metabase-ui').url`
-- "¿Qué services usan el puerto 8080?" → search por `network.port`
-- "¿Qué endpoints son públicos vs internos?" → `access: public|internal`
-- "¿Qué endpoint requiere auth?" → `auth: required|none|token`
-
-**Estructura endpoint:**
-```yaml
-id: metabase-ui
-category: endpoints
-url: http://192.168.1.54:3000
-service_ref: metabase
-access: internal
-auth: none
-```
-
-**Regla de mantenimiento:** `endpoints/` duplica host+port del software — `service_ref` es el vínculo para actualizar coordinadamente. Ver `references/endpoints-schema.md`.
-
----
-
-## Mapeo de Contenedores network=host
-
-Containers con `--network=host` no aparecen en `docker ps --format "{{.Ports}}"`. Puertos reales en .54:
-
-| Contenedor | Puerto | Verificado |
-|---|---|---|
-| metabase | :3000 | ss -tlnp + curl |
-| open-webui | :8080 | ss -tlnp + curl |
-| phpmyadmin | :80 | ss -tlnp (Apache) |
-| adguardhome | :8083 | ss -tlnp |
-| unbound | :53 | ss -tlnp |
+| Container | Port | Verification |
+|-----------|------|-------------|
+| metabase | :3000 | `ss` + curl |
+| open-webui | :8080 | `ss` + curl |
+| phpmyadmin | :80 | `ss` (Apache) |
+| adguardhome | :8083 | `ss` |
+| unbound | :53 | `ss` |
 | searxng | :8888 | docker ps (bridge) |
 | portainer | :9443 | docker ps (bridge) |
 
-**Comando para verificar:**
-```bash
-ssh carlos@192.168.1.54 'ss -tlnp | grep -E "LISTEN" | grep -v "127.0.0.54"'
-```
+---
+
+## References
+
+- [`domain-model.md`](./domain-model.md) — Entity responsibilities
+- [`schema-v1.md`](./schema-v1.md) — YAML specification
+- SKILL.md — Minimal API contract

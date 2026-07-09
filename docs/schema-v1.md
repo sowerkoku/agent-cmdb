@@ -1,21 +1,41 @@
-# Schema v1 — Agent CMDB Entity Specification
+# Schema v1 — Agent-CMDB Entity Specification
 
-**Status:** Draft (pending implementation)  
-**Compatibility:** Backward incompatible with pre-v1 YAML (migration required)  
-**Implementation:** `cmdb/validator.py`, `cmdb/indexer.py`
+**Status:** Stable (v1.2)
+**Compatibility:** Schema is frozen. Dataset may grow; format does not change.
 
 ---
 
-## 1. Envelope base obligatorio
+## 1. Design Principles (non-negotiable)
 
-Toda entidad DEBE tener esta estructura mínima:
+These principles define the Kernel's identity:
+
+1. **Facts are immutable until replaced.**
+   A fact in the Kernel is correct until it is replaced by a newer, verified fact.
+
+2. **Every assertion must be backed by evidence.**
+   If the Kernel does not contain a fact, the agent treats it as unverified.
+
+3. **Freshness is computed, never stored.**
+   `expires_at` is derived from `observed_at + domain TTL`. No stale values can accumulate.
+
+4. **Relations always point to entities.**
+   A relation `target` is always an `id` in the Kernel — never a literal IP, hostname, or URL.
+
+5. **The Kernel never reasons or decides.**
+   It answers three questions: *"Does it exist?"* / *"What depends on it?"* / *"Is it fresh?"* — nothing more.
+
+---
+
+## 2. Base envelope (required)
+
+Every entity **must** have this minimum structure:
 
 ```yaml
 schema_version: 1
 
-id: <unique-identifier>
-kind: <entity-type>
-
+id: <unique-identifier>       # stable identity
+kind: <entity-kind>            # asset | software | endpoint | automation | data
+domain: <domain>               # infrastructure | automation | knowledge | organization
 metadata:
   name: <human-readable-name>
   description: <optional-description>
@@ -26,358 +46,29 @@ relations:
   - type: <relation-type>
     target: <target-entity-id>
 
-criticality:
-  business: <low|medium|high>
-  operational: <low|medium|high>
-  technical: <low|medium|high>
-```
-
-### Ejemplo completo
-
-```yaml
-schema_version: 1
-
-id: mysql
-kind: software
-
-metadata:
-  name: MySQL
-  description: Database engine for CIC operations
-  version: "8.0"
-
-status: operational
-
-relations:
-  - type: runs_on
-    target: server-54
-  - type: uses
-    target: docker
-  - type: reads
-    target: cic_db
+evidence:
+  source_file: <path>
+  confidence_level: <HIGH | MEDIUM | LOW | UNKNOWN>
+  confidence_basis: [<SCHEMA_VALIDATED | HUMAN_DECLARED | RUNTIME_CHECKED | INFERRED | DISCOVERED>]
+  observed_at: <ISO-8601-timestamp>
 
 criticality:
-  business: high
-  operational: high
-  technical: medium
+  business: <low | medium | high>
+  operational: <low | medium | high>
+  technical: <low | medium | high>
 
 tags:
-  - database
-  - core-infra
+  - <tag>
 ```
 
----
-
-## 2. Separación: Identidad vs Metadata
-
-### Campos obligatorios (identidad)
-
-| Campo | Tipo | Inmutable | Descripción |
-|-------|------|-----------|-------------|
-| `schema_version` | `integer` | N/A | Versión del schema — siempre `1` por ahora |
-| `id` | `string` | ✅ Sí | Identificador único — nunca cambia durante la vida de la entidad |
-| `kind` | `string` | ❌ No | Tipo de entidad — puede cambiar si se reclasifica |
-
-**Regla:** `id` es la clave primaria. No se modifica, no se reusa, no se elimina (se marca `status: deprecated`).
-
-### Campos opcionales (metadata)
-
-| Campo | Tipo | Descripción |
-|-------|------|-------------|
-| `metadata.name` | `string` | Nombre legible para humanos |
-| `metadata.description` | `string` | Descripción opcional (máx 200 chars) |
-| `metadata.version` | `string` | Versión del software/componente |
-| `status` | `enum` | Estado operacional (`operational`, `degraded`, `down`, `deprecated`) |
-| `tags` | `list[string]` | Etiquetas para búsqueda/filtrado |
-| `criticality` | `object` | Matriz de criticidad (ver sección 5) |
-| `relations` | `list[object]` | Relaciones tipadas (ver sección 4) |
-
----
-
-## 3. `kind` es la verdad semántica
-
-Aunque las entidades estén organizadas físicamente en carpetas:
-
-```
-entities/
-├── software/
-│   └── mysql.yaml
-├── assets/
-│   └── server-54.yaml
-```
-
-**La fuente de verdad es el campo `kind`:**
-
-```yaml
-kind: software  # ← Esto define el tipo, no la carpeta
-```
-
-### Tipos válidos (catálogo cerrado)
-
-| Kind | Descripción | Ejemplo |
-|------|-------------|---------|
-| `asset` | Hardware físico o virtual | `server-54`, `router-mikrotik`, `pc-cico` |
-| `software` | Servicios, daemons, CLIs | `mysql`, `ollama`, `docker`, `hermes` |
-| `automation` | Scripts, jobs, pipelines | `sync-firebird-mysql`, `backup-nightly` |
-| `data` | Bases de datos, backups, datasets | `cic_db`, `firebird_db`, `backup-20260621` |
-| `endpoint` | URLs, interfaces HTTP | `api.telegram.org`, `ollama:11434` |
-
-**Regla:** Agregar nuevos `kind` requiere justificación por "Impact First" (ver `domain-model.md`).
-
----
-
-## 4. Relaciones tipadas (schema estricto)
-
-### Formato obligatorio
-
-```yaml
-relations:
-  - type: <relation-type>
-    target: <target-entity-id>
-    metadata:          # opcional
-      reason: <justificación>
-      since: <fecha>
-```
-
-### ❌ No aceptar (legacy)
-
-```yaml
-# RECHAZADO por validator
-depends_on:
-  - mysql
-  - ollama
-
-runs_on: server-54
-```
-
-### ✅ Aceptar (v1)
-
-```yaml
-relations:
-  - type: uses
-    target: mysql
-  - type: uses
-    target: ollama
-  - type: runs_on
-    target: server-54
-```
-
-**Ventaja:** El formato v1 permite extender con metadata sin cambiar el modelo:
-
-```yaml
-relations:
-  - type: uses
-    target: mysql
-    metadata:
-      reason: "primary database backend"
-      since: "2025-01-15"
-```
-
----
-
-## 5. Catálogo de relaciones (cerrado)
-
-| Relación | Target válido | Descripción | Transitiva |
-|----------|---------------|-------------|------------|
-| `runs_on` | `asset` | Host donde se ejecuta | ❌ No |
-| `uses` | Cualquier kind | Dependencia funcional | ✅ Sí |
-| `reads` | `data`, `software` | Lectura de datos | ✅ Sí |
-| `writes` | `data`, `software` | Escritura de datos | ✅ Sí |
-| `calls` | `endpoint`, `software` | Invocación HTTP/RPC | ❌ No |
-| `owns` | Cualquier kind | Propiedad/gestión | ❌ No |
-| `backs_up` | `data` | Backup/replicación | ❌ No |
-| `monitors` | Cualquier kind | Monitoreo/alertas | ❌ No |
-
-**Regla:** Agregar nuevas relaciones requiere justificación de consulta operacional.
-
-### Restricciones de validez
-
-| Relación | Target debe ser | Validación |
-|----------|-----------------|------------|
-| `runs_on` | `kind: asset` | `validator` rechaza si target no es asset |
-| `reads` / `writes` | `kind: data` o `software` | Solo bases de datos o servicios que exponen datos |
-| `calls` | `kind: endpoint` o `software` | Endpoints HTTP o servicios con API |
-| `backs_up` | `kind: data` | Solo datasets/backups |
-
----
-
-## 6. Criticidad estructural
-
-### Schema obligatorio (si se declara)
-
-```yaml
-criticality:
-  business: <low|medium|high>
-  operational: <low|medium|high>
-  technical: <low|medium|high>
-```
-
-**Regla:** Si se declara `criticality`, los tres campos son obligatorios. No se permite parcialidad.
-
-### Valores válidos
-
-| Nivel | Descripción |
-|-------|-------------|
-| `low` | Impacto localizado, recuperación rápida (< 1 hr) |
-| `medium` | Impacto operacional moderado, recuperación en horas |
-| `high` | Impacto core del negocio, requiere redundancia |
-
-### Clasificación automática (derivada)
-
-| business | operational | technical | Clasificación |
-|----------|-------------|-----------|---------------|
-| high | high | any | **CRÍTICO** |
-| high | medium | low | **IMPORTANTE** |
-| low | any | any | **MENOR** |
-
----
-
-## 7. Estado operacional (`status`)
-
-### Valores válidos
-
-| Status | Descripción | Cuándo usar |
-|--------|-------------|-------------|
-| `operational` | Funcionando normalmente | Estado por defecto |
-| `degraded` | Funcionando con limitaciones | Performance reducido, fallback activo |
-| `down` | Fuera de servicio | Fallo total, mantenimiento programado |
-| `deprecated` | Obsoleto, programado para eliminación | Entidad en retirada, no crear nuevas dependencias |
-
-**Regla:** Entidades con `status: deprecated` no deben tener nuevas relaciones entrantes.
-
----
-
-## 8. Validaciones del schema v1
-
-### ID
-
-| Regla | Expresión | Ejemplo ✅ | Ejemplo ❌ |
-|-------|-----------|------------|------------|
-| Único en todo el CMDB | — | `mysql`, `server-54` | `mysql` duplicado |
-| lowercase | `^[a-z0-9-]+$` | `server-54`, `firebird-db` | `Server-54`, `FirebirdDB` |
-| kebab-case | sin underscores | `backup-nightly` | `backup_nightly` |
-| sin espacios | — | `cic-db` | `cic db` |
-| máximo 64 chars | `len(id) <= 64` | — | `sync-firebird-mysql-backup-verification-script-...` |
-
-### Relations
-
-| Regla | Validación |
-|-------|------------|
-| `target` debe existir | El ID referenced debe existir en el CMDB |
-| `type` debe pertenecer al catálogo | Solo relaciones de la sección 5 |
-| `runs_on` solo apunta a `asset` | Validator rechaza `runs_on: mysql` |
-| Sin duplicados | No repetir `type + target` en la misma entidad |
-
-### Kind
-
-| Regla | Validación |
-|-------|------------|
-| Debe pertenecer al catálogo | Solo `asset`, `software`, `automation`, `data`, `endpoint` |
-| No cambiar sin justificación | `kind` puede cambiar, pero requiere commit con justificación |
-
-### Criticality
-
-| Regla | Validación |
-|-------|------------|
-| Si se declara, debe ser completo | No permitir `criticality: { business: high }` aislado |
-| Valores válidos | Solo `low`, `medium`, `high` |
-
----
-
-## 9. Reglas de migración (v0 → v1)
-
-### Migración de `depends_on`
-
-**Antes (v0):**
-```yaml
-id: hermes
-depends_on:
-  - ollama
-  - mysql
-runs_on: server-53
-```
-
-**Después (v1):**
-```yaml
-schema_version: 1
-id: hermes
-kind: software
-
-metadata:
-  name: Hermes Agent
-
-status: operational
-
-relations:
-  - type: uses
-    target: ollama
-  - type: uses
-    target: mysql
-  - type: runs_on
-    target: server-53
-```
-
-### Migración de carpetas
-
-**Antes (v0):**
-```
-entities/
-├── agents/devon.yaml
-├── software/ollama.yaml
-```
-
-**Después (v1):**
-```
-entities/
-├── devon.yaml          # kind: software (o agent, TBD)
-├── ollama.yaml         # kind: software
-```
-
-**Opción transitoria:** Mantener carpetas por conveniencia, pero `kind` es la verdad:
-
-```yaml
-# entities/software/mysql.yaml
-schema_version: 1
-id: mysql
-kind: software  # ← La carpeta es irreversible, el campo kind es la verdad
-```
-
----
-
-## 10. Ejemplos por tipo
-
-### Asset
+### Complete example — Software
 
 ```yaml
 schema_version: 1
-id: server-54
-kind: asset
 
-metadata:
-  name: Server 54
-  description: Proxmox VM for AI services
-  specs:
-    cpu: 8 vCPU
-    ram: 32 GB
-    disk: 500 GB SSD
-
-status: operational
-
-criticality:
-  business: high
-  operational: high
-  technical: medium
-
-tags:
-  - proxmox
-  - ai-infra
-```
-
-### Software
-
-```yaml
-schema_version: 1
 id: ollama
 kind: software
+domain: infrastructure
 
 metadata:
   name: Ollama
@@ -388,9 +79,15 @@ status: operational
 
 relations:
   - type: runs_on
-    target: server-54
-  - type: uses
-    target: docker
+    target: orange-pi-54
+  - type: exposes
+    target: ollama-api
+
+evidence:
+  source_file: software/ollama.yaml
+  confidence_level: HIGH
+  confidence_basis: [SCHEMA_VALIDATED, HUMAN_DECLARED]
+  observed_at: "2026-07-07T00:00:00Z"
 
 criticality:
   business: medium
@@ -402,129 +99,256 @@ tags:
   - inference
 ```
 
-### Automation
+### Complete example — Endpoint
 
 ```yaml
 schema_version: 1
-id: sync-firebird-mysql
-kind: automation
 
-metadata:
-  name: Firebird → MySQL Sync
-  description: Nightly CDC synchronization pipeline
-  schedule: "0 2 * * *"
-
-status: operational
-
-relations:
-  - type: reads
-    target: firebird_db
-  - type: writes
-    target: mysql_cic
-  - type: runs_on
-    target: pc-cico
-
-criticality:
-  business: high
-  operational: high
-  technical: medium
-
-tags:
-  - cdc
-  - sync
-  - nightly
-```
-
-### Data
-
-```yaml
-schema_version: 1
-id: firebird_db
-kind: data
-
-metadata:
-  name: Firebird CIC Database
-  description: Core transactional database
-  engine: Firebird 3.0
-  size: "2.3 GB"
-
-status: operational
-
-relations:
-  - type: runs_on
-    target: server-52
-  - type: backs_up
-    target: backup-firebird-nightly
-
-criticality:
-  business: high
-  operational: high
-  technical: high
-
-tags:
-  - transactions
-  - core
-  - firebird
-```
-
-### Endpoint
-
-```yaml
-schema_version: 1
-id: telegram-api
+id: ollama-api
 kind: endpoint
+domain: infrastructure
 
 metadata:
-  name: Telegram Bot API
-  url: https://api.telegram.org
-  method: HTTPS
+  name: Ollama API
+  # IDENTITY: host/port/protocol may change without changing the ID
+  host: 192.168.1.54
+  port: 11434
+  protocol: http
 
 status: operational
 
 relations:
-  - type: calls
-    target: telegram-api
+  - type: exposed_by
+    target: ollama
 
-criticality:
-  business: medium
-  operational: medium
-  technical: low
+evidence:
+  source_file: endpoint/ollama-api.yaml
+  confidence_level: HIGH
+  confidence_basis: [SCHEMA_VALIDATED, RUNTIME_CHECKED]
+  observed_at: "2026-07-07T00:00:00Z"
 
 tags:
-  - messaging
-  - external
+  - llm
+  - api
 ```
 
 ---
 
-## 11. Checklist de validación (pre-commit)
+## 3. Identity vs Metadata
 
-Antes de mergear un cambio al CMDB:
+| Field | Type | Immutable | Description |
+|-------|------|-----------|-------------|
+| `schema_version` | `integer` | N/A | Always `1` for v1 |
+| `id` | `string` | ✅ Yes | Primary key — never changes |
+| `kind` | `string` | ❌ No | Can change if reclassified |
+| `domain` | `string` | ❌ No | Can change as understanding evolves |
 
-- [ ] `schema_version: 1` presente
-- [ ] `id` único, lowercase, kebab-case, ≤64 chars
-- [ ] `kind` pertenece al catálogo
-- [ ] `metadata.name` presente
-- [ ] `status` es valor válido
-- [ ] `relations[].type` pertenece al catálogo
-- [ ] `relations[].target` existe en el CMDB
-- [ ] `runs_on` apunta solo a `asset`
-- [ ] `criticality` (si se declara) tiene los 3 campos
-- [ ] No hay dependencias hacia entidades `deprecated`
-- [ ] `cmdb_validate()` pasa sin errores
+**Rule:** `id` is the primary key. It is never modified, reused, or deleted. Mark `status: deprecated` instead.
+
+### What is NOT identity
+
+Fields in `metadata` are **observed facts** — they describe the current state, not the permanent identity:
+
+```yaml
+# host/port/protocol are observed — they may change
+metadata:
+  host: 192.168.1.54    # could become ollama.internal
+  port: 11434           # could become 443
+  protocol: http        # could become https
+```
+
+This is intentional. An endpoint's **ID is its communication identity** — stable regardless of how the connection details evolve.
 
 ---
 
-## Historial de cambios
+## 4. Valid `kind` catalog (closed)
 
-| Fecha | Versión | Cambio |
-|-------|---------|--------|
-| 2026-06-22 | 1.0-draft | Schema inicial — pendiente implementación en validator |
+| Kind | Description | Example |
+|------|-------------|---------|
+| `asset` | Physical or virtual host | `orange-pi-54`, `servidor-pos` |
+| `software` | Executing process or service | `ollama`, `mysql`, `hermes` |
+| `endpoint` | Observable communication identity | `ollama-api`, `telegram-bot` |
+| `automation` | Scheduled scripts, jobs, pipelines | `sync-firebird-mysql` |
+| `data` | Databases, backups, datasets | `firebird_db`, `backup-20260621` |
+
+**Rule:** Do not add new `kind` without a justified operational use case.
 
 ---
 
-## Referencias
+## 5. Typed relations catalog (closed + extends)
 
-- [`domain-model.md`](./domain-model.md) — Contrato semántico
-- [`governance.md`](../GOVERNANCE.md) — Regla 0, gobernanza
-- `cmdb/validator.py` — Implementación de validación (pendiente)
+### Format
+
+```yaml
+relations:
+  - type: <relation-type>
+    target: <target-entity-id>    # always an entity ID — never a literal
+```
+
+### Relation reference
+
+| Relation | Target must be | Description | Transitive |
+|----------|----------------|-------------|------------|
+| `runs_on` | `asset` | Host where software executes | ❌ No |
+| `exposes` | `endpoint` | Software exposes this endpoint | ❌ No |
+| `exposed_by` | `software` | Endpoint belongs to this software | ❌ No |
+| `uses` | Any kind | Functional dependency | ✅ Yes |
+| `reads` | `data`, `software` | Reads data | ✅ Yes |
+| `writes` | `data`, `software` | Writes data | ✅ Yes |
+| `calls` | `endpoint`, `software` | HTTP/RPC invocation | ❌ No |
+| `owns` | Any kind | Ownership / operational responsibility | ❌ No |
+| `backs_up` | `data` | Backup / replication | ❌ No |
+| `monitors` | Any kind | Monitoring / health checks | ❌ No |
+
+### Validity rules
+
+| Rule | Validation |
+|------|------------|
+| `target` must exist | `cmdb_validate()` rejects unknown targets |
+| `type` must be in catalog | Unknown types rejected |
+| `runs_on` only to `asset` | Validator rejects `runs_on` to non-asset |
+| No duplicates | Same `type + target` once per entity |
+| `exposes` only to `endpoint` | Validator enforces endpoint target |
+
+### `runs_on` is computed — not stored separately
+
+```python
+entity = cmdb_get("ollama")
+entity.runs_on   # → "orange-pi-54" — computed from relations
+                # NOT from metadata.runs_on
+```
+
+The Kernel traverses the `relations` list at query time and returns the `target` of the first `runs_on` relation.
+
+---
+
+## 6. Evidence structure
+
+The `evidence` block answers: *"Why do we believe this?"*
+
+```yaml
+evidence:
+  source_file: software/ollama.yaml
+  confidence_level: HIGH
+  confidence_basis:
+    - SCHEMA_VALIDATED      # passed YAML schema validation
+    - HUMAN_DECLARED        # intentionally declared by a human
+  observed_at: "2026-07-07T00:00:00Z"
+```
+
+### Confidence levels
+
+| Level | Meaning | When used |
+|-------|---------|-----------|
+| `HIGH` | Multiple strong signals | Schema validated + human declared + recent |
+| `MEDIUM` | Single strong signal | Schema validated OR human declared |
+| `LOW` | Weak or incomplete evidence | Auto-discovered, no validation |
+| `UNKNOWN` | Minimal or no evidence | Unknown origin |
+
+### Confidence basis
+
+| Basis | Description |
+|-------|-------------|
+| `SCHEMA_VALIDATED` | Passed YAML schema validation |
+| `HUMAN_DECLARED` | Intentionally declared by a human |
+| `RUNTIME_CHECKED` | Verified at runtime (health check, SSH scan) |
+| `INFERRED` | Deduced from other facts |
+| `DISCOVERED` | Auto-discovered by scanner |
+
+### Freshness — computed, never stored
+
+```yaml
+evidence:
+  observed_at: "2026-07-07T00:00:00Z"   # recorded when verified
+```
+
+`expires_at` is **derived** from `observed_at + domain TTL` at query time:
+
+| Domain | Default TTL |
+|--------|-------------|
+| Infrastructure | 1 hour |
+| Endpoints | 5–15 minutes |
+| Software | 24 hours |
+| Policies | 30 days |
+| Procedures | 90 days |
+
+The Kernel never stores `expires_at` — it would go stale. Freshness is always computed.
+
+---
+
+## 7. Operational status
+
+| Status | Description | When to use |
+|--------|-------------|-------------|
+| `operational` | Normal operation | Default state |
+| `degraded` | Operating with limitations | Reduced performance, fallback active |
+| `down` | Out of service | Total failure, scheduled maintenance |
+| `deprecated` | Scheduled for removal | In retirement — no new dependencies |
+
+**Rule:** Entities with `status: deprecated` must not acquire new incoming relations.
+
+---
+
+## 8. Schema validation rules
+
+### ID format
+
+| Rule | Pattern | Example ✅ | Example ❌ |
+|------|---------|------------|------------|
+| Unique across entire CMDB | — | `mysql`, `orange-pi-54` | Duplicated ID |
+| Lowercase | `^[a-z0-9-]+$` | `server-54`, `firebird-db` | `Server-54`, `FirebirdDB` |
+| Kebab-case | No underscores | `backup-nightly` | `backup_nightly` |
+| Max 64 chars | `len(id) ≤ 64` | — | `sync-firebird-mysql-backup-verification...` |
+
+### Relations
+
+| Rule | Check |
+|------|-------|
+| `target` exists | ID must be in the Kernel |
+| `type` is in catalog | Only relations from section 5 |
+| `runs_on` → `asset` only | Validator rejects otherwise |
+| No duplicate `type + target` | One relation per type-target pair |
+
+### Evidence
+
+| Rule | Check |
+|------|-------|
+| `observed_at` is ISO-8601 | Parseable by `datetime.fromisoformat()` |
+| `confidence_level` is valid enum | One of HIGH/MEDIUM/LOW/UNKNOWN |
+| `confidence_basis` values are valid | Each in [SCHEMA_VALIDATED, HUMAN_DECLARED, RUNTIME_CHECKED, INFERRED, DISCOVERED] |
+
+---
+
+## 9. Validation checklist (pre-commit)
+
+Before pushing a change to the Kernel:
+
+- [ ] `schema_version: 1` present
+- [ ] `id` unique, lowercase, kebab-case, ≤64 chars
+- [ ] `kind` in [asset, software, endpoint, automation, data]
+- [ ] `metadata.name` present
+- [ ] `status` is valid value
+- [ ] All `relations[].type` in catalog
+- [ ] All `relations[].target` exist in Kernel
+- [ ] `runs_on` targets are `kind: asset`
+- [ ] `exposes` targets are `kind: endpoint`
+- [ ] `evidence.observed_at` is ISO-8601
+- [ ] `evidence.confidence_level` is valid enum
+- [ ] `criticality` (if declared) has all three fields
+- [ ] `cmdb_validate()` passes without errors
+
+---
+
+## Change history
+
+| Date | Version | Change |
+|------|---------|--------|
+| 2026-06-22 | draft | Initial schema — Registry era |
+| 2026-07-07 | v1.2 | Complete rewrite: English, exposes/exposed_by, endpoint identity vs observation, `entity.runs_on` computed, freshness as derived property, principles as contract |
+
+---
+
+## References
+
+- [`domain-model.md`](./domain-model.md) — Semantic contract and entity responsibilities
+- [`usage-patterns.md`](./usage-patterns.md) — Query patterns and cmdb API usage

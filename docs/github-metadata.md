@@ -3,13 +3,14 @@
 ## Description (copy/paste esto en About)
 
 ```
-A factual grounding layer that helps AI agents query verified reality before reasoning or acting.
+A deterministic factual substrate for AI agents.
 ```
 
-**Características:**
-- 102 caracteres (GitHub muestra ~120)
-- No usa "CMDB" como primera palabra
-- Dice qué es, para quién, y el beneficio
+**Why this description:**
+- 45 characters — GitHub muestra ~120, deja espacio para contexto
+- "Deterministic factual substrate" comunica inmediatamente que no es una CMDB clásica ni una base de datos
+- "For AI agents" define la audiencia — no hay ambigüedad
+- No menciona CMDB, inventory, monitoring — las cosas que NO es
 
 ---
 
@@ -46,7 +47,7 @@ Si tienes `gh` instalado:
 
 ```bash
 # Descripción
-gh repo edit sowerkoku/agent-cmdb --description "A factual grounding layer that helps AI agents query verified reality before reasoning or acting."
+gh repo edit sowerkoku/agent-cmdb --description "A deterministic factual substrate for AI agents."
 
 # Topics
 gh repo edit sowerkoku/agent-cmdb --topics "ai-agents,agentic-ai,grounding,cmdb,knowledge-graph,dependency-graph,agent-memory,llm,reasoning,infrastructure,facts,hallucination-prevention,factual-memory"
@@ -62,14 +63,14 @@ La descripción corta aparece en:
 - Previews de enlaces
 - Herramientas de IA que indexan repositorios
 
-**Mala descripción:**
+**Descripción vaga:**
 > "CMDB for AI agents"
 
-→ La gente piensa en NetBox, ServiceNow, inventario IT.
+→ La gente piensa en NetBox, ServiceNow, inventario IT tradicional.
 
-**Buena descripción:**
-> "A factual grounding layer that helps AI agents query verified reality before reasoning or acting."
+**Descripción precisa:**
+> "A deterministic factual substrate for AI agents."
 
-→ La gente entiende: agentes → consultan realidad → antes de razonar.
+→ La gente entiende inmediatamente: no es inventario IT, es una capa factual determinista para agentes.
 
-El 80% del descubrimiento del proyecto depende de estas 17 palabras.
+El 80% del descubrimiento del proyecto depende de estas 7 palabras.
