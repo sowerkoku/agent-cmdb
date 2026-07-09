@@ -2,7 +2,7 @@
 
 **Deterministic factual grounding for AI agents.**
 
-A shared knowledge kernel that stores verified facts, evidence, relationships, and freshness so multiple agents can reason consistently from the same verifiable reality.
+A Knowledge Kernel — a shared source of truth that stores verified facts, evidence, relationships, and freshness so multiple agents can reason consistently from the same verifiable reality.
 
 - **Facts** — verified entities, not inferred knowledge
 - **Evidence** — why we trust each fact (source, confidence, observed_at)
@@ -238,6 +238,25 @@ Code and data are permanently separated. Updating the package never touches the 
 | Monitoring | No real-time metrics |
 | Automation | Does not execute actions |
 | A CMDB | Not NetBox or ServiceNow — it is a deterministic factual grounding layer |
+
+---
+
+## When to Use Agent-CMDB
+
+**Use agent-cmdb when:**
+
+✓ Multiple agents need the same facts
+✓ Facts must be evidence-backed
+✓ Facts change over time and freshness matters
+✓ Deterministic retrieval is more important than semantic search
+✓ You need a shared source of truth across agents
+
+**Don't use agent-cmdb when:**
+
+✗ You need document retrieval → use a vector database
+✗ You need conversational memory → use agent memory
+✗ You need vector similarity search → use embeddings
+✗ You need real-time monitoring → use Prometheus/Grafana
 
 ---
 

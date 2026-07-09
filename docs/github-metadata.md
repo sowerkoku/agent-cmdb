@@ -9,17 +9,15 @@ Deterministic factual grounding for AI agents.
 ## Description (copy/paste this in About — 160 chars)
 
 ```
-Deterministic factual knowledge layer for AI agents. Store verified facts, evidence, relationships and freshness for grounding LLM reasoning.
+Deterministic grounding layer and shared source of truth for AI agents. Store verified facts, evidence, relationships and freshness.
 ```
 
 **Contains the key search terms:**
 - AI agents
-- knowledge layer
-- verified facts
-- evidence
-- relationships
-- grounding
-- LLM reasoning
+- knowledge layer / grounding
+- verified facts / evidence / relationships / freshness
+- shared source of truth
+- deterministic
 
 ---
 
@@ -64,7 +62,7 @@ context-engineering knowledge-kernel structured-memory cmdb
 
 ```bash
 # Description (160 chars)
-gh repo edit sowerkoku/agent-cmdb --description "Deterministic factual knowledge layer for AI agents. Store verified facts, evidence, relationships and freshness for grounding LLM reasoning."
+gh repo edit sowerkoku/agent-cmdb --description "Deterministic grounding layer and shared source of truth for AI agents. Store verified facts, evidence, relationships and freshness."
 
 # Topics
 gh repo edit sowerkoku/agent-cmdb --topics "ai-agents,agentic-ai,grounding,knowledge-base,knowledge-graph,agent-memory,llm,reasoning,infrastructure,facts,deterministic-ai,context-engineering,knowledge-kernel,structured-memory,cmdb"
@@ -86,9 +84,9 @@ The short description appears in:
 → People think: NetBox, ServiceNow, IT inventory.
 
 **Clear description:**
-> "Deterministic factual knowledge layer for AI agents. Store verified facts, evidence, relationships and freshness for grounding LLM reasoning."
+> "A deterministic grounding layer and shared source of truth for AI agents."
 
-→ People understand: shared factual layer → multiple agents → reason consistently from the same reality.
+→ People understand: shared source of truth → multiple agents → reason consistently from the same verifiable reality.
 
 ---
 
