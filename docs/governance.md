@@ -182,6 +182,9 @@ Full decision log: `/home/carlos/proyectos/cic-v3/docs/decisions/decision_log.md
 
 ## References
 
-- [`domain-model.md`](./domain-model.md) — Entity responsibilities
-- [`schema-v1.md`](./schema-v1.md) — Technical specification
+**Authoritative sources:**
+- [`philosophy.md`](./philosophy.md) — Principles: "Is it a fact?", "Only what verifies facts", survival test
+- [`domain-model.md`](./domain-model.md) — Entity inclusion criteria (Impact First)
+
+**Related:**
 - [`audit-methodology.md`](./audit-methodology.md) — How to audit the Kernel

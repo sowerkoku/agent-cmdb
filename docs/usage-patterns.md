@@ -227,6 +227,8 @@ Known ports on orange-pi-54 (verified with ss + curl):
 
 ## References
 
-- [`domain-model.md`](./domain-model.md) — Entity responsibilities
+**Authoritative sources:**
+- [`philosophy.md`](./philosophy.md) — Principles: lazy integration, fact grounding pattern
+- [`architecture.md`](./architecture.md) — Package structure and lazy integration contract
+- [`domain-model.md`](./domain-model.md) — Entity responsibilities (Asset/Software/Endpoint/Evidence)
 - [`schema-v1.md`](./schema-v1.md) — YAML specification
-- SKILL.md — Minimal API contract

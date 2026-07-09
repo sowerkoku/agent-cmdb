@@ -203,7 +203,12 @@ running_here = [e["id"] for e in all_software
 
 ## 8. References
 
-- [`schema-v1.md`](./schema-v1.md) — YAML specification (updated for v1.2)
+**Authoritative sources:**
+- [`philosophy.md`](./philosophy.md) — Six principles, KPI definitions (FGR, Coverage, Freshness)
+- [`architecture.md`](./architecture.md) — Pipeline, code vs data separation, package structure
+
+**Related:**
+- [`schema-v1.md`](./schema-v1.md) — YAML specification
 - [`usage-patterns.md`](./usage-patterns.md) — Query patterns and cmdb API usage
 - [`governance.md`](./governance.md) — What enters the Kernel, what does not
 

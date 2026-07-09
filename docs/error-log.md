@@ -315,5 +315,9 @@ print('✅ cmdb_validate passed')
 
 ## References
 
+**Authoritative sources:**
+- [`domain-model.md`](./domain-model.md) — Entity responsibilities, identity vs observation
 - [`schema-v1.md`](./schema-v1.md) — Schema validation rules
-- [`domain-model.md`](./domain-model.md) — Entity responsibilities
+
+**Related:**
+- [`philosophy.md`](./philosophy.md) — Principles: identity, immutability, evidence

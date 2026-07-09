@@ -350,5 +350,10 @@ Before pushing a change to the Kernel:
 
 ## References
 
-- [`domain-model.md`](./domain-model.md) — Semantic contract and entity responsibilities
-- [`usage-patterns.md`](./usage-patterns.md) — Query patterns and cmdb API usage
+**Authoritative sources:**
+- [`philosophy.md`](./philosophy.md) — Principles: schema validity, relations, freshness
+- [`architecture.md`](./architecture.md) — Package structure and lazy integration
+- [`domain-model.md`](./domain-model.md) — Entity responsibilities
+
+**Related:**
+- [`usage-patterns.md`](./usage-patterns.md) — Query patterns

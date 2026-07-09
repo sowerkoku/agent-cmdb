@@ -248,6 +248,31 @@ python3 -c "from cmdb.api import cmdb_get; print(cmdb_get('ollama').entity.runs_
 
 ---
 
+## Documentation
+
+The documentation is organized in three levels of abstraction:
+
+```
+README.md
+ ├── philosophy.md       ← why it exists, principles, KPIs (FGR/Coverage/Freshness)
+ └── architecture.md    ← how the pieces connect
+
+ domain-model.md    ← what entities represent
+ schema-v1.md        ← how entities are serialized
+ usage-patterns.md   ← how to query it
+ governance.md       ← what belongs to the Kernel
+ audit-methodology.md ← how to verify quality
+ error-log.md        ← how it fails
+ github-metadata.md  ← repo metadata
+```
+
+**For contributors:**
+- Start at README → philosophy → architecture
+- Implement with: domain-model → schema-v1 → usage-patterns
+- Operate with: governance → audit-methodology → error-log
+
+---
+
 ## License
 
 MIT — Carlos Cáceres, 2026

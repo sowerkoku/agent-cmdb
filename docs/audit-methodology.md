@@ -229,6 +229,10 @@ Measure what percentage of real infrastructure is captured in the Kernel:
 
 ## References
 
-- [`governance.md`](./governance.md) — What enters the Kernel
+**Authoritative sources:**
+- [`architecture.md`](./architecture.md) — How the audit integrates with the cmdb_validate API
+- [`governance.md`](./governance.md) — What earns audit attention (HIGH-criticality, stale evidence)
+
+**Related:**
 - [`domain-model.md`](./domain-model.md) — Entity responsibilities
 - [`schema-v1.md`](./schema-v1.md) — Schema validation rules
