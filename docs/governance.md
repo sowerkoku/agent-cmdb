@@ -106,9 +106,23 @@ If the distribution contradicts our assumptions, we learn about **actual reasoni
 
 #### E. Dataset Churn (using `dataset_hash`)
 
-| Indicator | Question | Value |
-|-----------|----------|-------|
-| **`dataset_hash` changes/day** | ¿El estado factual es estable o cambia constantemente? | Low = stable, high = volatile |
+| Indicator | Question | Target |
+|-----------|----------|--------|
+| **`dataset_hash` changes/day** | ¿El estado factual es estable o cambia constantemente? | **Context-dependent** |
+
+`dataset_hash` changes/day is **not** a unilateral "lower is better" metric. Interpretation depends:
+
+| Scenario | Expected churn |
+|----------|---------------|
+| Stable domestic infra, no new findings | ≈ 0 (normal) |
+| Active discovery week + curation | > 0 (normal) |
+| Core/infra edits with no discovery | ≈ 0 (expected) |
+| High volatile hardware discovery (ports, IPs) | > 0 (signals domain TTL underestimation) |
+
+Read this indicator **together with:**
+- Number of new entities added
+- Number of corrections applied
+- Nature of changes (new vs. evolved vs. rotated)
 
 This becomes useful later when we ask: *Is the current `dataset_hash` still valid?* or *What changed between hash H1 and H2?*
 
@@ -130,6 +144,23 @@ Architecture changes are only justified by:
 Not by:
 
 > "We could make it faster / simpler / prettier."
+
+---
+
+### 1.5.2. Deferred indicators (roadmap only — NOT L2.1 work)
+
+The following indicators are **annotated** here so future implementers do not lose context, but they must **not** be implemented during OBSERVE MODE.
+
+| Indicator | Question | Reason to defer |
+|-----------|----------|-----------------|
+| **Fact Concentration** | ¿El 80% de las consultas dependen del 20% de las entidades? | Reveals cognitive SPOFs and curation priorities — valuable after we have volume + distribution |
+
+Other indicators to consider in later phases (also deferred):
+- Cross-agent dedup rate (how often do multiple agents query the same fact?)
+- Reverse-relation necessity (how often does `cmdb_impact` use the inverse direction?)
+- Discovery yield (what fraction of discovered-but-uncurated findings become curated?)
+
+These become relevant only after the 5 primary indicators show stable patterns in production traffic.
 
 ---
 

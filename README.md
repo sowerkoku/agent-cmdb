@@ -15,21 +15,50 @@ The next architecture must emerge from **observed usage patterns and empirical e
 
 **Permitted:**
 - Run Hermes normally
-- Collect 100–500 real queries
-- Generate reports
-- Fix bugs
+- Expand dataset (empirical learning, not architectural change)
+- Fix bugs (defects only)
 - Improve documentation
-- Expand factual dataset
+- Performance tuning that preserves public contracts and architectural boundaries
+- Analysis of telemetry across the 5 primary indicators
 
 **Not permitted:**
 - New APIs
-- New indexes
-- New engines
+- New indexes not triggered by observed patterns
+- New engines or layers
 - Proposal queues
 - Evidence engines
-- Auto-reload
-- Watchers
-- New layers
+- Auto-reload / file watchers
+- Architectural redesign
+
+### Stated configuration
+
+```
+Architecture:        Frozen
+Dataset:             Evolvable
+Telemetry:           Active
+Decision-making:     Evidence-driven
+Minimum observation: 100 real queries
+```
+
+### Maturity (per area)
+
+| Area | Status | Notes |
+|------|--------|-------|
+| Factual model | High maturity | L2 stable |
+| Determinism | High maturity | L2 stable |
+| Observability | Good | L2.1 complete |
+| Governance | Good | OBSERVE RULE 1 + 5 indicators |
+| Multi-writer | Consciously deferred | Not yet needed |
+| Factual evolution | Sufficient | Empirically guided |
+| Empirical evidence | Pending | Awaiting 100–500 queries |
+
+### Closing milestone statement
+
+> The architecture is stable enough to stop designing
+> and mature enough to start learning from reality.
+
+The next valuable information is **not** in the code.
+It is in the behavior Hermes produces across the next hundreds of real queries.
 
 ---
 
