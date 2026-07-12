@@ -90,6 +90,7 @@ def cmdb_reload() -> dict:
         "entities": entity_count,
         "reload_ms": reload_ms,
         "dataset_snapshot": dataset_snapshot,
+        "dataset_hash": engine._dataset_hash,
     }
 
 

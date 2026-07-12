@@ -24,10 +24,12 @@ The only path to mutation is: edit YAML → reload().
 """
 
 from dataclasses import dataclass, field
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 from threading import RLock
 from typing import Dict, List, Optional, Set, Any
+import hashlib
+import time
 import yaml
 
 
@@ -79,6 +81,9 @@ class EngineStats:
     load_wall_ms: int
     memory_estimate_kb: int
     last_refresh_reason: str = "initial_load"
+    # L2.1 operational metadata
+    generation: int = 0
+    dataset_hash: str = ""
 
 
 class KernelEngine:
@@ -104,6 +109,17 @@ class KernelEngine:
 
         self._stats: Optional[EngineStats] = None
         self._lock = RLock()
+
+        # Generation counter (increments on every reload)
+        self._generation: int = 0
+        # Content-addressed dataset hash (recomputed on every reload)
+        self._dataset_hash: str = ""
+        # Timestamp of the last reload completion (ISO-8601)
+        self._last_reload_at: Optional[str] = None
+        # Counters for telemetry
+        self._reload_count: int = 0
+        self._reload_failures: int = 0
+        self._reload_ms_total: float = 0.0
 
     @classmethod
     def get_instance(cls, entities_dir: Path) -> "KernelEngine":
@@ -132,77 +148,92 @@ class KernelEngine:
             self.reload()
 
     def reload(self) -> EngineStats:
-            """
-            Rebuild indexes from YAML dataset.
+        """
+        Rebuild indexes from YAML dataset.
 
-            Atomic reload pattern:
-            1. Build new indexes in temporary locals
-            2. Validate (implicit: skip invalid YAMLs)
-            3. Swap references under lock
+        Atomic reload pattern:
+        1. Build new indexes in temporary locals
+        2. Validate (implicit: skip invalid YAMLs)
+        3. Swap references under lock
 
-            Never exposes partial state to readers.
-            """
-            start = datetime.now()
-
-            # Build in temporaries (no lock held yet)
-            new_id_index: Dict[str, Entity] = {}
-            new_kind_index: Dict[str, Set[str]] = {}
-            new_forward_index: Dict[str, List[Relation]] = {}
-            new_reverse_index: Dict[str, List[Relation]] = {}
-            kind_counts: Dict[str, int] = {}
-            count = 0
-
-            if self.entities_dir.exists():
-                for yaml_file in self.entities_dir.rglob("*.yaml"):
-                    try:
-                        entity = self._load_yaml(yaml_file)
-                        if entity is None:
-                            continue
-                    
-                        # Index
-                        new_id_index[entity.id] = entity
-                    
-                        if entity.kind not in new_kind_index:
-                            new_kind_index[entity.kind] = set()
-                        new_kind_index[entity.kind].add(entity.id)
-                    
-                        # Forward relations
-                        if entity.id not in new_forward_index:
-                            new_forward_index[entity.id] = []
-                        new_forward_index[entity.id].extend(entity.relations)
-                    
-                        # Reverse relations
-                        for rel in entity.relations:
-                            if rel.target not in new_reverse_index:
-                                new_reverse_index[rel.target] = []
-                            new_reverse_index[rel.target].append(Relation(type=rel.type, target=entity.id))
-                    
-                        kind_counts[entity.kind] = kind_counts.get(entity.kind, 0) + 1
-                        count += 1
-                    
-                    except Exception:
-                        # Skip malformed files (validator catches separately)
-                        continue
-
-            # Atomic swap under lock
-            with self._lock:
-                self._id_index = new_id_index
-                self._kind_index = new_kind_index
-                self._forward_relation_index = new_forward_index
-                self._reverse_relation_index = new_reverse_index
-            
-                self._stats = EngineStats(
-                    entity_count=count,
-                    by_kind=kind_counts,
-                    indexes_built_at=start,
-                    load_wall_ms=int((datetime.now() - start).total_seconds() * 1000),
-                    memory_estimate_kb=self._estimate_memory_kb(),
-                )
-                self._dataset_mtime = self._get_dataset_mtime() if self.entities_dir.exists() else 0.0
-                self._loaded = True
-                self._stats.last_refresh_reason = "dataset_changed" if count > 0 else "empty_or_missing_dataset"
+        Never exposes partial state to readers.
         
-            return self._stats
+        Returns EngineStats with generation, dataset_hash, and index counts.
+        """
+        start = datetime.now()
+        t0 = time.perf_counter()
+
+        # Build in temporaries (no lock held yet)
+        new_id_index: Dict[str, Entity] = {}
+        new_kind_index: Dict[str, Set[str]] = {}
+        new_forward_index: Dict[str, List[Relation]] = {}
+        new_reverse_index: Dict[str, List[Relation]] = {}
+        kind_counts: Dict[str, int] = {}
+        count = 0
+
+        if self.entities_dir.exists():
+            for yaml_file in self.entities_dir.rglob("*.yaml"):
+                try:
+                    entity = self._load_yaml(yaml_file)
+                    if entity is None:
+                        continue
+                    
+                    # Index
+                    new_id_index[entity.id] = entity
+                    
+                    if entity.kind not in new_kind_index:
+                        new_kind_index[entity.kind] = set()
+                    new_kind_index[entity.kind].add(entity.id)
+                
+                    # Forward relations
+                    if entity.id not in new_forward_index:
+                        new_forward_index[entity.id] = []
+                    new_forward_index[entity.id].extend(entity.relations)
+                
+                    # Reverse relations
+                    for rel in entity.relations:
+                        if rel.target not in new_reverse_index:
+                            new_reverse_index[rel.target] = []
+                        new_reverse_index[rel.target].append(Relation(type=rel.type, target=entity.id))
+                
+                    kind_counts[entity.kind] = kind_counts.get(entity.kind, 0) + 1
+                    count += 1
+                
+                except Exception:
+                    # Skip malformed files (validator catches separately)
+                    continue
+
+        # Compute content-addressed hash of the dataset
+        dataset_hash = self._compute_dataset_hash()
+
+        # Atomic swap under lock
+        reload_ms = (time.perf_counter() - t0) * 1000
+        self._reload_count += 1
+        self._reload_ms_total += reload_ms
+        
+        with self._lock:
+            self._id_index = new_id_index
+            self._kind_index = new_kind_index
+            self._forward_relation_index = new_forward_index
+            self._reverse_relation_index = new_reverse_index
+        
+            self._generation += 1
+            self._last_reload_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat()
+            self._dataset_hash = dataset_hash  # Actualizar campo de instancia
+            self._stats = EngineStats(
+                entity_count=count,
+                by_kind=kind_counts,
+                indexes_built_at=start,
+                load_wall_ms=int(reload_ms),
+                memory_estimate_kb=self._estimate_memory_kb(),
+                generation=self._generation,
+                dataset_hash=dataset_hash,
+            )
+            self._dataset_mtime = self._get_dataset_mtime() if self.entities_dir.exists() else 0.0
+            self._loaded = True
+            self._stats.last_refresh_reason = "dataset_changed" if count > 0 else "empty_or_missing_dataset"
+        
+        return self._stats
     def _load_yaml(self, yaml_file: Path) -> Optional[Entity]:
         """Parse one YAML file into Entity object."""
         with open(yaml_file, "r", encoding="utf-8") as f:
@@ -307,6 +338,31 @@ class KernelEngine:
             assert self._stats is not None, "Stats should be set after ensure_loaded()"
             return self._stats
 
+    def get_engine_info(self) -> dict:
+        """Return operational metadata for debugging/telemetry.
+        
+        Returns:
+            dict with entities, generation, dataset_hash, memory, reload stats, index counts.
+        """
+        self.ensure_loaded()
+        with self._lock:
+            return {
+                "entities": self._stats.entity_count if self._stats else 0,
+                "generation": self._generation,
+                "dataset_hash": self._dataset_hash,
+                "last_reload_at": self._last_reload_at,
+                "memory_estimate_kb": self._stats.memory_estimate_kb if self._stats else 0,
+                "reload_count": self._reload_count,
+                "reload_failures": self._reload_failures,
+                "avg_reload_ms": round(self._reload_ms_total / self._reload_count, 2) if self._reload_count > 0 else 0.0,
+                "indexes": {
+                    "id": len(self._id_index),
+                    "kind": len(self._kind_index),
+                    "forward_relation": sum(len(v) for v in self._forward_relation_index.values()),
+                    "reverse_relation": sum(len(v) for v in self._reverse_relation_index.values()),
+                },
+            }
+
     def _get_dataset_mtime(self) -> float:
         """Get max mtime of all YAML files in dataset."""
         max_mtime = 0.0
@@ -320,6 +376,27 @@ class KernelEngine:
             except OSError:
                 continue
         return max_mtime
+
+    def _compute_dataset_hash(self) -> str:
+        """Compute SHA256 hash of the dataset.
+        
+        Hashes all YAML files in sorted order for reproducibility.
+        Returns first 8 hex chars for telemetry-friendly representation.
+        """
+        if not self.entities_dir.exists():
+            return ""
+        
+        hasher = hashlib.sha256()
+        yaml_files = sorted(self.entities_dir.rglob("*.yaml"))
+        
+        for yaml_file in yaml_files:
+            try:
+                with open(yaml_file, "rb") as f:
+                    hasher.update(f.read())
+            except OSError:
+                continue
+        
+        return hasher.hexdigest()[:8]
 
     def _estimate_memory_kb(self) -> int:
         """Rough memory estimate by serializing indexes."""
