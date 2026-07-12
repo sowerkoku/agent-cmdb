@@ -44,6 +44,8 @@ class QueryEvent:
     schema_version: int = 1
     kernel_version: str = "L2.1"
     dataset_snapshot: Optional[str] = None
+    dataset_hash: Optional[str] = None    # SHA256[:8] of canonical YAML at time of query
+    engine_generation: Optional[int] = None  # engine reload counter at time of query
 
     def to_jsonl(self) -> str:
         return json.dumps(asdict(self), ensure_ascii=False)
@@ -58,6 +60,8 @@ class AssertionEvent:
     assertion: str
     fact_ids: List[str]
     schema_version: int = 1
+    dataset_hash: Optional[str] = None  # SHA256[:8] of canonical YAML at assertion time
+    engine_generation: Optional[int] = None
 
     def to_jsonl(self) -> str:
         return json.dumps(asdict(self), ensure_ascii=False)
@@ -93,14 +97,20 @@ def log_query(
     ensure_dirs()
     
     # Dataset snapshot: entity_count@timestamp
+    # Plus: dataset_hash + engine_generation for exact factual state attribution
     try:
         from pathlib import Path
         from cmdb.engine import get_engine
         engine = get_engine(Path.home() / "knowledge" / "knowledge-kernel")
         stats = engine.get_stats()
         dataset_snapshot = f"{stats.entity_count}@{datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M')}"
+        info = engine.get_engine_info()
+        dataset_hash = info.get("dataset_hash") or None
+        engine_generation = info.get("generation")
     except Exception:
         dataset_snapshot = None
+        dataset_hash = None
+        engine_generation = None
     
     event = QueryEvent(
         timestamp=datetime.now(timezone.utc).isoformat(),
@@ -114,6 +124,8 @@ def log_query(
         used_kernel=used_kernel,
         latency_ms=round(latency_ms, 2),
         dataset_snapshot=dataset_snapshot,
+        dataset_hash=dataset_hash,
+        engine_generation=engine_generation,
     )
     with QUERIES_FILE.open("a") as f:
         f.write(event.to_jsonl() + "\n")
@@ -122,12 +134,27 @@ def log_query(
 def log_assertion(assertion: str, fact_ids: List[str]) -> None:
     """Log an agent-declared assertion event."""
     ensure_dirs()
+    
+    # Capture dataset state at assertion time for auditing
+    try:
+        from pathlib import Path
+        from cmdb.engine import get_engine
+        engine = get_engine(Path.home() / "knowledge" / "knowledge-kernel")
+        info = engine.get_engine_info()
+        dataset_hash = info.get("dataset_hash") or None
+        engine_generation = info.get("generation")
+    except Exception:
+        dataset_hash = None
+        engine_generation = None
+    
     event = AssertionEvent(
         timestamp=datetime.now(timezone.utc).isoformat(),
         session_id=get_session_id(),
         agent_id=get_agent_id(),
         assertion=assertion,
         fact_ids=fact_ids,
+        dataset_hash=dataset_hash,
+        engine_generation=engine_generation,
     )
     with ASSERTIONS_FILE.open("a") as f:
         f.write(event.to_jsonl() + "\n")
