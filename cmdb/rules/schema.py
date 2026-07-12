@@ -67,8 +67,8 @@ def validate_schema_version(entity: dict, all_entities: dict) -> tuple[list[Erro
     entity_id = entity.get("id", "<unknown>")
 
     if "schema_version" not in entity:
-        warnings.append(Warning(entity_id, "schema_version", 
-            "Missing schema_version — assuming v1 (legacy). Consider migrating to v2."))
+        errors.append(Error(entity_id, "schema_version", 
+            "Missing schema_version — v2 entities must declare schema_version: 2"))
     elif entity["schema_version"] not in (1, 2):
         errors.append(Error(entity_id, "schema_version", 
             f"Unsupported schema_version: {entity['schema_version']}. Expected 1 or 2."))
@@ -206,8 +206,8 @@ def validate_relations(entity: dict, all_entities: dict) -> tuple[list[Error], l
         if not rel_type:
             errors.append(Error(entity_id, f"relations[{i}].type", "Missing relation type"))
         elif rel_type not in valid_relation_types:
-            warnings.append(Warning(entity_id, f"relations[{i}].type",
-                f"Non-standard relation type: {rel_type!r}"))
+            errors.append(Error(entity_id, f"relations[{i}].type",
+                f"Unknown relation type: {rel_type!r}. Valid types: {sorted(valid_relation_types)}"))
 
         if not rel_target:
             errors.append(Error(entity_id, f"relations[{i}].target", "Missing relation target"))

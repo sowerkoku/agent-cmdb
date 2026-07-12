@@ -183,7 +183,7 @@ class TestRelationValidation:
             tmpdir = Path(tmpdir)
             
             entity = create_test_entity("mysql", "software", relations=[
-                {"type": "depends_on", "target": "server-54"},  # Invalid type
+                {"type": "magic_link", "target": "server-54"},  # Invalid type
             ])
             write_entity(tmpdir, entity)
             

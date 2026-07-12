@@ -5,7 +5,7 @@ All configuration is read from environment variables with sensible defaults.
 This module provides a single source of truth for all CMDB settings.
 
 Environment variables:
-    CMDB_DATA_DIR       — Path to entities directory (default: ~/.local/share/agent-cmdb)
+    CMDB_DATA_DIR       — Path to entities directory (default: ~/knowledge/knowledge-kernel)
     CMDB_SCHEMA_VERSION — Expected schema version (default: 1)
     CMDB_READ_ONLY      — If "1", disable write operations (default: "0")
     CMDB_CACHE_DIR      — Path to cache directory (default: ~/.cache/agent-cmdb)
@@ -36,8 +36,8 @@ class CMDBConfig:
         if data_dir:
             data_dir = Path(data_dir).expanduser()
         else:
-            # Default: ~/.local/share/agent-cmdb (XDG-compliant)
-            data_dir = Path.home() / ".local" / "share" / "agent-cmdb"
+            # Default: ~/knowledge/knowledge-kernel (Knowledge Kernel dataset)
+            data_dir = Path.home() / "knowledge" / "knowledge-kernel"
         
         # CMDB_SCHEMA_VERSION: expected schema version
         schema_version_str = os.environ.get("CMDB_SCHEMA_VERSION", "1")

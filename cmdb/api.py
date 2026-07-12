@@ -49,8 +49,9 @@ def cmdb_engine_info(entities_dir=None) -> dict:
         memory_estimate_kb, reload_count, reload_failures, avg_reload_ms, indexes.
     """
     from pathlib import Path
+    from .config import get_config
     if entities_dir is None:
-        entities_dir = Path(os.environ.get("CMDB_DATA_DIR", Path.home() / "knowledge" / "knowledge-kernel"))
+        entities_dir = get_config().data_dir
     else:
         entities_dir = Path(entities_dir)
     
@@ -71,8 +72,9 @@ def cmdb_stats(entities_dir=None) -> dict:
         dict with: entities (total), {kind}: count, relations (total), dataset_hash.
     """
     from pathlib import Path
+    from .config import get_config
     if entities_dir is None:
-        entities_dir = Path(os.environ.get("CMDB_DATA_DIR", Path.home() / "knowledge" / "knowledge-kernel"))
+        entities_dir = get_config().data_dir
     else:
         entities_dir = Path(entities_dir)
     
