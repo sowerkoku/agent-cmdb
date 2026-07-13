@@ -63,9 +63,9 @@ tools:
 
 ## Testing
 
-Tests live at the repo root (`~/agent-cmdb/tests/`) — they cover the core API plus all tools. There are no separate integration tests in `integrations/hermes/tests/`; the root suite is the source of truth.
+Tests live at the code repository root (`~/knowledge-kernel/tests/`) — they cover the core API plus all tools. There are no separate integration tests in `integrations/hermes/tests/`; the root suite is the source of truth.
 
 ```bash
-cd ~/agent-cmdb
+cd ~/knowledge-kernel
 CMDB_DATA_DIR=~/knowledge/knowledge-kernel pytest tests/ -v
 ```

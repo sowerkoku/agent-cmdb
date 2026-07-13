@@ -205,13 +205,13 @@ def cmdb_get(entity_id: str, entities_dir: Optional[Path] = None) -> CMDBResult:
     # Build file path for evidence
     entity_file = entity.source_file or "unknown"
 
-    # Build Entity object (model)
+    # Build Entity object (model) — convert Relation objects to dicts
     entity_obj = ModelEntity(
         id=entity.id,
         kind=entity.kind,
         status=entity.status,
         metadata=entity.metadata,
-        relations=entity.relations,
+        relations=[{"type": r.type, "target": r.target} for r in entity.relations],
     )
 
     evidence = _build_evidence(entity, entity_file)

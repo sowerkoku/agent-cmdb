@@ -318,6 +318,39 @@ Full decision log: `~/proyectos/cic-v3/docs/decisions/decision_log.md`
 
 ---
 
+## 11. Documentation size governance
+
+Documentation tends to grow by accumulation and duplication. To prevent
+the SKILL.md from regressing to the 1,700-line state captured in L2.1:
+**a single file is bounded**.
+
+### Hard limits
+
+| File                              | Maximum lines |
+|-----------------------------------|--------------:|
+| `SKILL.md` (in this skill)        | 500           |
+| `docs/<topic>.md`                 | 500           |
+| `docs/pitfalls/<single-pitfall>.md` | 200          |
+| `docs/playbooks/<recipe>.md`      | 400           |
+| `docs/history/*.md`               | no limit (historical) |
+
+### What to do when a file exceeds its limit
+
+1. **Divide by responsibility.** Split content into siblings — never append
+   sections to make a bloated file "fit".
+2. **Never add sections at the end** to preserve the prior structure. New
+   content either creates a sibling file or replaces an existing section
+   wholly.
+3. **Never duplicate a heading.** A repeated section title in the same file
+   is a signal the work belongs elsewhere.
+
+### Acceptance test
+
+Before merging a documentation change, run the governance test in
+`tests/test_doc_governance.py`. CI must remain green.
+
+---
+
 ## References
 
 **Authoritative sources:**

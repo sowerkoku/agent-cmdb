@@ -193,6 +193,7 @@ def validate_relations(entity: dict, all_entities: dict) -> tuple[list[Error], l
         "runs_on", "uses", "reads", "writes", "calls",
         "owns", "backs_up", "monitors", "part_of", "depends_on",
         "assigned_to", "belongs_to", "uses_profile", "listens_on",
+        "exposes", "exposed_by",
     }
 
     for i, rel in enumerate(relations):
