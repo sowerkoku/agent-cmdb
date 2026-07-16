@@ -368,7 +368,7 @@ Code and data are permanently separated. Updating the package never touches the 
 
 ---
 
-## What Agent-CMDB Is NOT
+## What a Knowledge Kernel Is NOT
 
 | Not | Because |
 |-----|---------|
@@ -381,7 +381,7 @@ Code and data are permanently separated. Updating the package never touches the 
 
 ---
 
-## When to Use Agent-CMDB
+## When to Use a Knowledge Kernel
 
 **Use knowledge-kernel when:**
 
