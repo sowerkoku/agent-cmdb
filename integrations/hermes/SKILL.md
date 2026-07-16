@@ -116,6 +116,10 @@ Question arrives
   the stable category)
 - Do **not** treat missing facts as false — say "unverified"
 - Do **not** modify anything without first running `cmdb_impact(id)`
+- Do **not** commit infrastructure-specific data to the public repo (IPs, hostnames, MACs, PIDs, telemetry). See
+  [`references/repository-instance-boundary.md`](references/repository-instance-boundary.md) for the security sanitization workflow.
+- Do **not** add alarmist notes to README after cleanup — silent removal is
+  preferred over drawing attention to historical data no longer in HEAD.
 
 ---
 
@@ -163,7 +167,7 @@ This lets an endpoint migrate from `192.168.1.50:3306` to
 ```
 SKILL.md              ← this file. Permanent + small.
 docs/                 ← permanent reference
-  philosophy.md        Why the Kernel exists
+  philosophy.md        Why the Kernel exists (includes Repository/Instance Boundary)
   architecture.md      L1 + L2 engine
   observability.md     KAR / FGR / KHI
   governance.md        Inclusion test
@@ -174,6 +178,10 @@ docs/                 ← permanent reference
   playbooks/           Operational recipes
   history/             Experimental + historical
   releases/            User-facing release notes
+references/           ← session-specific detail & operational guides
+  repository-instance-boundary.md  Security sanitization workflow + boundary principle
+scripts/              ← maintenance tools
+  update-github-meta.sh
 ```
 
 ---

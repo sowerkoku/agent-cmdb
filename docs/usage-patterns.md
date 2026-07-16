@@ -208,7 +208,7 @@ running_here = [
 Containers with `--network=host` do not appear in `docker ps --format "{{.Ports}}"`. Verify with `ss -tlnp` on the host:
 
 ```bash
-ssh carlos@192.168.10.10 'ss -tlnp | grep -E "LISTEN" | grep -v "127.0.0"'
+ssh user@192.168.10.10 'ss -tlnp | grep -E "LISTEN" | grep -v "127.0.0"'
 ```
 
 Known ports on app-server-01 (verified with ss + curl):

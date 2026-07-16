@@ -464,4 +464,4 @@ README.md (this file)
 
 ## License
 
-MIT — Carlos Cáceres, 2026
+MIT — Kernel Maintainer, 2026

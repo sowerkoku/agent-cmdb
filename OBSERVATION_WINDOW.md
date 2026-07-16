@@ -139,5 +139,5 @@ Fields verified:
 
 **Declared:** 2026-07-12  
 **Declaring Agent:** Hermes  
-**Witness:** Carlos Caceres  
+**Witness:** Kernel Maintainer  
 **GitHub Milestone:** #1 (L2.1 Observation Window)
