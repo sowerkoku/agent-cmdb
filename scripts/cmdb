@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Agent-CMDB CLI — Query factual infrastructure memory
+Knowledge Kernel CLI — Query factual infrastructure memory
 
 Usage:
     cmdb exists <entity_id>     Check if entity exists

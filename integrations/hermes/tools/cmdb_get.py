@@ -1,7 +1,7 @@
 """
 Hermes Tool: cmdb_get
 
-Get full entity details with evidence from Agent-CMDB.
+Get full entity details with evidence from the Knowledge Kernel.
 
 Returns:
 - entity: id, kind, status, metadata

@@ -1,4 +1,4 @@
-# agent-cmdb Test Suite
+# Knowledge Kernel Test Suite
 #
 # Two levels of tests:
 #
@@ -6,9 +6,9 @@
 #   - API, schema, validation, relations, search, impact, config
 #   - These verify the system works, not that specific data exists
 #
-# DATASET TESTS (CIC-specific, for ~/knowledge/agent-cmdb)
+# DATASET TESTS (CIC-specific, for ~/knowledge/knowledge-kernel)
 #   - These verify the CIC dataset contains expected entities
-#   - Run with CMDB_DATA_DIR=~/knowledge/agent-cmdb
+#   - Run with CMDB_DATA_DIR=~/knowledge/knowledge-kernel
 #   - Other users with other datasets would have different Dataset tests
 
 import pytest

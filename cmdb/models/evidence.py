@@ -1,5 +1,5 @@
 """
-Agent-CMDB Evidence Model — Why We Trust This Fact
+Knowledge Kernel Evidence Model — Why We Trust This Fact
 
 Represents WHY we can trust declared reality.
 

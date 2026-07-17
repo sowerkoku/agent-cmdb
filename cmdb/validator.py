@@ -1,5 +1,5 @@
 """
-CMDB Validator — Agent CMDB Entity Validation
+CMDB Validator — Knowledge Kernel Entity Validation
 
 Validates all entities in the CMDB against schema v2 rules.
 Returns errors (blocking) and warnings (non-blocking) without raising exceptions.
@@ -32,7 +32,7 @@ def get_default_entities_dir() -> Path:
     return get_config().data_dir
 
 
-# Directorio de entidades (por defecto: ~/agent-cmdb/data/)
+# Directorio de entidades (por defecto: ~/knowledge-kernel/data/)
 DEFAULT_ENTITIES_DIR = get_default_entities_dir()
 
 
@@ -163,7 +163,7 @@ def cmdb_validate(entities_dir: Optional[Path] = None) -> dict:
     Validate all entities in the CMDB.
     
     Args:
-        entities_dir: Path to entities directory (default: ~/agent-cmdb/data/)
+        entities_dir: Path to entities directory (default: ~/knowledge-kernel/data/)
     
     Returns:
         dict with:

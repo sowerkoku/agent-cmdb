@@ -8,7 +8,7 @@ Environment variables:
     CMDB_DATA_DIR       — Path to entities directory (default: ~/knowledge/knowledge-kernel)
     CMDB_SCHEMA_VERSION — Expected schema version (default: 1)
     CMDB_READ_ONLY      — If "1", disable write operations (default: "0")
-    CMDB_CACHE_DIR      — Path to cache directory (default: ~/.cache/agent-cmdb)
+    CMDB_CACHE_DIR      — Path to cache directory (default: ~/.cache/knowledge-kernel)
     CMDB_LOG_LEVEL      — Logging level: DEBUG, INFO, WARNING, ERROR (default: INFO)
 """
 
@@ -54,7 +54,7 @@ class CMDBConfig:
         if cache_dir:
             cache_dir = Path(cache_dir).expanduser()
         else:
-            # Default: ~/.cache/agent-cmdb
+            # Default: ~/.cache/knowledge-kernel
             cache_dir = Path.home() / ".cache" / "agent-cmdb"
         
         # CMDB_LOG_LEVEL: logging level

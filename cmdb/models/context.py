@@ -1,5 +1,5 @@
 """
-Agent-CMDB Query Context Model — Execution Metadata
+Knowledge Kernel Query Context Model — Execution Metadata
 
 Represents WHEN and HOW a query was executed.
 

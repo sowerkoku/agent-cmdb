@@ -1,5 +1,5 @@
 """
-Agent-CMDB Result Model — Composed Response for Agents
+Knowledge Kernel Result Model — Composed Response for Agents
 
 Combines Entity + Evidence + Context into single result object.
 

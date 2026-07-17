@@ -1,5 +1,5 @@
 """
-Agent-CMDB Entity Model — Declared Reality
+Knowledge Kernel Entity Model — Declared Reality
 
 Represents WHAT exists, WITHOUT trust metadata.
 

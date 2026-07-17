@@ -1,5 +1,5 @@
 """
-Registry Audit Tool — Pre-migration analysis for agent-cmdb v2.
+Registry Audit Tool — Pre-migration analysis for knowledge-kernel v2.
 
 Does NOT write any files. Only analyzes and reports.
 

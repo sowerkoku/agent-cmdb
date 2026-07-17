@@ -1,7 +1,7 @@
-# Agent-CMDB Models
+# Knowledge Kernel Models
 
 """
-Data models for Agent-CMDB factual memory layer.
+Data models for Knowledge Kernel factual memory layer.
 
 Modules:
 - entity: Declared reality (what exists)

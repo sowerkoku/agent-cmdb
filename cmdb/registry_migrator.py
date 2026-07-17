@@ -1,7 +1,7 @@
 """
-Registry to Agent-CMDB Migration Tool.
+Registry to Knowledge Kernel Migration Tool.
 
-Migrates entities from the legacy registry format to agent-cmdb.
+Migrates entities from the legacy registry format to knowledge-kernel.
 
 Usage:
     from cmdb.migrator import migrate_registry
@@ -27,7 +27,7 @@ from typing import Optional
 from datetime import datetime
 
 
-# Registry categories → agent-cmdb categories
+# Registry categories → knowledge-kernel categories
 CATEGORY_MAP = {
     "assets": "assets",
     "software": "software",
@@ -42,7 +42,7 @@ CATEGORY_MAP = {
 
 def migrate_entity(entity: dict, source_path: Path) -> dict:
     """
-    Transform a registry entity to agent-cmdb format.
+    Transform a registry entity to knowledge-kernel format.
     
     Changes:
     - Adds schema_version: 1
@@ -79,7 +79,7 @@ def migrate_registry(
     dry_run: bool = True,
 ) -> dict:
     """
-    Migrate entities from registry to agent-cmdb format.
+    Migrate entities from registry to knowledge-kernel format.
     
     Args:
         from_path: Path to registry directory (contains category subdirs)
@@ -231,7 +231,7 @@ def verify_migration(source_path: str, target_path: str) -> dict:
 if __name__ == "__main__":
     import argparse
     
-    parser = argparse.ArgumentParser(description="Migrate registry to agent-cmdb")
+    parser = argparse.ArgumentParser(description="Migrate registry to knowledge-kernel")
     parser.add_argument("--from", dest="from_path", required=True, help="Source registry path")
     parser.add_argument("--to", dest="to_path", help="Destination path (default: CMDB_DATA_DIR)")
     parser.add_argument("--dry-run", action="store_true", help="Simulate without writing")

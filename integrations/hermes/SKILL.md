@@ -186,7 +186,64 @@ scripts/              ← maintenance tools
 
 ---
 
-## 6. Links
+## 6. Documentation & Positioning
+
+### Project vs Category distinction
+
+**knowledge-kernel** (lowercase, hyphenated) = this specific project/repository.
+
+**Knowledge Kernel** (capitalized, spaces) = the architectural pattern/category that this project implements and aims to define.
+
+Use the distinction consistently:
+- Refer to the **project** as `knowledge-kernel` (code, repo, package name).
+- Refer to the **concept** as "a Knowledge Kernel" or "the Knowledge Kernel pattern" when discussing the architectural category.
+
+Section titles should speak to the **category**, not the brand:
+- ✅ `## What a Knowledge Kernel Is Not`
+- ✅ `## When to Use a Knowledge Kernel`
+- ❌ `## What knowledge-kernel Is Not` (too narrow — speaks only to this repo)
+
+This positioning reinforces that the project documents and exemplifies the pattern, not just implements it.
+
+### Markdown format for "Use / Do not use" sections
+
+When authoring "When to Use" or similar decision sections in documentation:
+
+```markdown
+## When to Use a Knowledge Kernel
+
+Use knowledge-kernel when:
+
+- ✓ Multiple agents need the same facts.
+- ✓ Facts must be backed by evidence.
+- ✓ Facts change over time and freshness matters.
+- ✓ Deterministic retrieval is more important than semantic similarity.
+- ✓ You need a shared source of truth across agents.
+
+Do **not** use knowledge-kernel when:
+
+- ✗ You need document retrieval → use a vector database.
+- ✗ You need conversational memory → use an agent memory system.
+- ✗ You need semantic similarity search → use embeddings.
+- ✗ You need real-time monitoring → use Prometheus/Grafana.
+```
+
+Key formatting rules:
+- Use proper markdown list bullets (`- ✓` / `- ✗`), not plain text with checkmarks.
+- Emphasize negation: `Do **not** use` (not just "Do not use").
+- End every list item with a period (`.`) for consistency.
+- Use precise technical vocabulary: "semantic similarity search" (not "semantic search"), "agent memory system" (not "agent memory").
+- Keep alternatives actionable: "→ use X" with a concrete tool/pattern.
+
+### Branding migration workflow
+
+For systematic project renaming across documentation, see:
+
+**[`references/branding-migration-playbook.md`](references/branding-migration-playbook.md)** — Step-by-step workflow for rebranding initiatives, including triage heuristics (what to edit vs what to preserve), commit message templates, and verification steps.
+
+---
+
+## 7. Links
 
 - [`docs/philosophy.md`](../knowledge-kernel/docs/philosophy.md) — Why build this?
 - [`docs/architecture.md`](../knowledge-kernel/docs/architecture.md) — How the engine works

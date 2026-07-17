@@ -1,7 +1,7 @@
 """
 Hermes Tool: cmdb_exists
 
-Check if an entity exists in Agent-CMDB before making factual claims.
+Check if an entity exists in the Knowledge Kernel before making factual claims.
 
 Usage in Hermes:
     From user message: "Does Ollama exist?"
@@ -15,7 +15,7 @@ from cmdb.api import cmdb_exists as _cmdb_exists
 
 def cmdb_exists(entity_id: str) -> dict:
     """
-    Check if an entity exists in Agent-CMDB.
+    Check if an entity exists in the Knowledge Kernel.
     
     **Use this BEFORE making ANY factual claim about infrastructure.**
     

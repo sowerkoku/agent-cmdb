@@ -1,4 +1,4 @@
-# Hermes integration tools exposed to Agent-CMDB
+# Hermes integration tools exposed to the Knowledge Kernel
 
 from .cmdb_exists import cmdb_exists
 from .cmdb_get import cmdb_get

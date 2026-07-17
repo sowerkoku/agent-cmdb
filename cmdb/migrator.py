@@ -388,7 +388,7 @@ def cmdb_migrate_dry_run(entities_dir: Optional[Path] = None) -> MigrationPlan:
     Plan a migration from v0 to v1 without applying changes.
     
     Args:
-        entities_dir: Path to entities directory (default: ~/agent-cmdb/data/)
+        entities_dir: Path to entities directory (default: ~/knowledge-kernel/data/)
     
     Returns:
         MigrationPlan with full details of what would change
