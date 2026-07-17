@@ -78,7 +78,23 @@ Until v2.0 work begins, the project's primary risk is **product risk**, not
 architectural risk. Design questions ("is the epistemic model correct?") are
 considered settled for the v1.x line.
 
-**Priorities for v1.x iteration:**
+### Project evolution — where we have been
+
+Each prior iteration resolved a question that the previous stage could not:
+
+1. **Modeling** — Define entities and relations.
+2. **Governance** — Establish evidence, provenance, and operational rules.
+3. **Architecture** — Lock the Knowledge Kernel contract.
+4. **Product** — Package the API, documentation, identity, and stability.
+5. **Adoption** — Demonstrate that other agents actually use it.
+
+The transition from **Product → Adoption** is the current phase. Re-entering
+earlier stages (refining models, redesigning governance, restructuring
+architecture) would mean the prior work was not actually settled. The value of
+this stage comes from observing real consumer usage, not from further
+in-abstracto design work.
+
+### Priorities for v1.x iteration
 
 1. **Adoption pathway** — Can another agent use the Kernel without additional
    explanation? Onboarding friction is a real measurement.
@@ -90,7 +106,7 @@ considered settled for the v1.x line.
    Address non-breaking optimizations first.
 5. **Missing functions** — What adjacent capabilities are needed but absent?
 
-**Signals to collect (telemetry-driven):**
+### Signals to collect (telemetry-driven)
 
 - Frequency of each `cmdb_*` tool invocation
 - Ratio of `cmdb_exists` calls that lead to `cmdb_get`
@@ -99,6 +115,9 @@ considered settled for the v1.x line.
 - Number of distinct agent integrations active
 
 These signals — not aesthetic code reviews — drive the next major version.
+Quantitative metrics are useful for tracking progress, but they become
+evidence only when paired with qualitative confirmation (e.g., a real
+consumer report).
 
 ---
 
@@ -134,30 +153,64 @@ These signals — not aesthetic code reviews — drive the next major version.
 
 ## Activation Criteria
 
-Do **not** start v2.0 work until **all** of the following hold:
+v2.0 work begins only when **evidence shows** the v1.x line has stabilized and
+real adoption has generated enough signal to design migration confidently. These
+are evidence-based gates, not arbitrary numeric thresholds. Numeric metrics may
+help quantify each gate, but they alone are not sufficient.
 
-**Time-based:**
+### Gates — each must be evidenced
 
-- [ ] v1.x has been stable for at least one minor release cycle (≥ v1.3.0)
+**1. API stability evidenced in real use**
 
-**Adoption-based (telemetry signals):**
+Evidence that the public API is stable across real usage patterns — not just
+declared frozen. This may include telemetry logs, integration reviews from
+external users, or signed-off pilot integrations. Signing on the dotted line of
+"frozen contract" without actual consumers is not sufficient.
 
-- [ ] At least one external downstream consumer integrated without assistance
-- [ ] ≥ 100 queries logged in telemetry (proves real usage, not just smoke tests)
-- [ ] ≥ 3 distinct `cmdb_*` tools called in production (proves breadth of use)
-- [ ] No support tickets / unknown blockers in last minor cycle
+**2. External consumers using the contract without modifications**
 
-**Documentation-based:**
+Evidence of at least one external agent or system consuming the public API
+*as documented* — without patches, forks, or layers of compatibility shims. If
+consumers need a workaround, the contract is not actually stable.
 
-- [ ] Migration guide drafted (target: `docs/migration-v1-to-v2.md`) — **stub created**, needs changelog anchors and rollback verified.
-- [ ] Changelog template populated with concrete breaking changes
-- [ ] Release notes explain _why_ each breaking change is necessary (user value, not aesthetics)
+**3. Main query patterns identified and covered**
 
-**Architectural-based:**
+Evidence that the primary use cases are understood: which `cmdb_*` tools are
+called most, what data shapes they return, what failures occur, and whether the
+public API expresses them naturally. This evidence drives the *scope* of v2.0:
+breaking changes should reflect known usage, not hypothetical improvements.
 
-- [ ] API surface stable for ≥ 1 minor cycle with no breaking additions
-- [ ] Telemetry confirms performance bottlenecks are addressed where possible
-- [ ] At least one architectural improvement has been completed in v1.x without regression
+**4. Pending breaking changes clearly defined and justified**
+
+Each breaking change planned for v2.0 must name:
+- **What** breaks (specific field, env var, path, function name).
+- **Who** is affected (consumers, scripts, deployments).
+- **Why** the change is necessary (user value, not aesthetic preference).
+- **Migration path** (concrete steps users must take).
+
+Cosmetic renames with no user value are not v2.0 candidates. They may wait indefinitely.
+
+**5. Migration guide complete and validated**
+
+The v2.0 migration guide must be:
+- Drafted.
+- Validated against at least one real consumer (internal team review, external
+  pilot, or dry-run walkthrough).
+- Verified to be **safe and reversible** (a rollback path must exist for at
+  least one minor cycle post-release).
+
+### Notes on framing
+
+These gates are framed as **evidence** rather than **numbers** because
+quantitative thresholds (e.g., "100 queries", "3 distinct tools", "1 minor
+cycle") can be met without the underlying stability being real. A 100-query
+log can hide a design flaw. A single user with a clear workload can surface
+what 100 smoke tests cannot. The intent is *evidence of stability*, not
+*targets to hit*.
+
+If desired, quantitative metrics can be associated with each gate as
+**indicative** measurements — helpful for tracking progress — but they should
+not be mistaken for the gate itself.
 
 ---
 
