@@ -243,6 +243,24 @@ For systematic project renaming across documentation, see:
 
 ---
 
+### Compatibility vs Aesthetics — Decision Criterion
+
+When considering whether to rename internal identifiers (env vars, default paths, module names, CLI commands), apply this test:
+
+> **"Does this change bring value to the user, or only improve code aesthetics?"**
+
+If only aesthetics → **postpone** until the next major version cycle (v2.0+).
+
+**v1.x stability window:** Internal identifiers (`AGENT_CMDB_DATA_DIR`, `~/agent-cmdb/` defaults, `cmdb` module name, `cmdb` CLI) are intentionally preserved despite the public brand migration to "Knowledge Kernel". Breaking changes require:
+- Bundled in a single v2.0 release
+- Deprecation warnings for one full minor cycle
+- Migration guide documenting the change
+- Evidence of real-world adoption justifying the churn
+
+See **[`references/runtime-compatibility-cleanup.md`](references/runtime-compatibility-cleanup.md)** for the full v2.0 roadmap and activation criteria.
+
+---
+
 ## 7. Links
 
 - [`docs/philosophy.md`](../knowledge-kernel/docs/philosophy.md) — Why build this?
