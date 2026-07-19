@@ -120,10 +120,78 @@ Question arrives
   [`references/repository-instance-boundary.md`](references/repository-instance-boundary.md) for the security sanitization workflow.
 - Do **not** add alarmist notes to README after cleanup — silent removal is
   preferred over drawing attention to historical data no longer in HEAD.
+- Do **not** store bare (unquoted) ISO dates in YAML `metadata.*` fields. PyYAML parses them as `datetime.date` objects. When `_compute_entity_hash()` calls `json.dumps()`, it crashes with `TypeError: Object of type date is not JSON serializable`. Always quote dates in YAML: `started: "2026-07-06"` not `started: 2026-07-06`. Fix in commit `c956cfe` (`cmdb/query.py: _json_default` serializer).
+- Do **not** treat `~/.hermes/skills/knowledge-kernel/` as the source of truth. This directory has **no git tracking**. Any non-git tool (Hermes process, cron job, external script) that writes there causes the SKILL.md and tools to drift from the git-tracked canonical source in `~/knowledge-kernel/integrations/hermes/`. **Sync direction is always: repo → skill.** See [`references/skill-repo-sync.md`](references/skill-repo-sync.md).
 
 ---
 
-## 4. Contract — what must never break?
+## 4. Executable Tools
+
+Beyond the Python API, the skill ships standalone tools for operational
+tasks. All accept `CMDB_DATA_DIR` env var (defaults to `~/knowledge/knowledge-kernel`).
+Run with `python3 <tool.py>` from any directory.
+
+### Observability — health & metrics
+
+| Tool | What it answers | When to use |
+|------|----------------|-------------|
+| `kpi.py` | DQS (quality), FFR (freshness), entity breakdown by kind, validation result | Periodic health check. Run before and after any bulk change. |
+| `cmdb_stats.py` | Entity count, relation count, per-kind breakdown, dataset hash | Quick snapshot — lighter than `kpi.py`, no validation step. |
+| `cmdb_engine_info.py` | Generation counter, reload speed, last reload timestamp, index sizes | Debug why a query returns stale data. Confirm engine reloaded after edits. |
+
+### Query — reading the Kernel
+
+| Tool | What it answers | When to use |
+|------|----------------|-------------|
+| `cmdb_exists.py <id>` | Does entity X exist? | **Always** — before making any factual claim. |
+| `cmdb_get.py <id>` | Full entity + evidence + relations | Deep reasoning about specific entity. |
+| `cmdb_impact.py <id>` | Dependency graph: what breaks if X fails? | **Before modifying or deleting any entity.** |
+| `cmdb_context.py <id>` | Pre-packaged context bundle for agent startup | Call once per agent session to prime the context. |
+
+### Decision — binary gates
+
+| Tool | What it answers | When to use |
+|------|----------------|-------------|
+| `cmdb_assert.py <id> <kind> <status>` | Binary: is entity X of kind Y with status Z? | Gates in CI/CD, pre-commit checks, automation decision points. |
+| `cmdb_validate.py` | Full dataset health: errors, warnings | Before committing YAML changes, before push, as part of cron health job. |
+
+### Maintenance — keeping the Kernel current
+
+| Tool | What it answers | When to use |
+|------|----------------|-------------|
+| `cmdb_reload.py` | Did indexes rebuild? Time taken? New hash? | **After editing YAML directly** — the engine caches indexes; this forces rebuild. |
+| `grounding_pilot.py` | KAR (kernel adoption rate), FGR (grounding rate) per category | Measure how often the agent chooses the Kernel over inference. Run in OBSERVE mode. |
+| `run_pilot.py` | Runs the full grounding pilot suite | Periodic measurement cadence. Produces reproducible grounding metrics. |
+
+### Quick reference
+
+```bash
+# Health snapshot
+CMDB_DATA_DIR=~/knowledge/knowledge-kernel python3 ~/.hermes/skills/knowledge-kernel/tools/kpi.py
+
+# Fast existence check (no full entity load)
+CMDB_DATA_DIR=~/knowledge/knowledge-kernel python3 ~/.hermes/skills/knowledge-kernel/tools/cmdb_exists.py ollama
+
+# Impact analysis before touching anything
+CMDB_DATA_DIR=~/knowledge/knowledge-kernel python3 ~/.hermes/skills/knowledge-kernel/tools/cmdb_impact.py server-192-168-1-53
+
+# Reload after YAML edit
+CMDB_DATA_DIR=~/knowledge/knowledge-kernel python3 ~/.hermes/skills/knowledge-kernel/tools/cmdb_reload.py
+
+# Dataset stats (lightweight)
+CMDB_DATA_DIR=~/knowledge/knowledge-kernel python3 ~/.hermes/skills/knowledge-kernel/tools/cmdb_stats.py
+
+# Engine telemetry
+CMDB_DATA_DIR=~/knowledge/knowledge-kernel python3 ~/.hermes/skills/knowledge-kernel/tools/cmdb_engine_info.py
+```
+
+> The Python API (`from cmdb.api import cmdb_get, ...`) covers all query and
+> decision functions programmatically. The tools above are CLI wrappers around
+> the same API — use whichever is more convenient.
+
+---
+
+## 5. Contract — what must never break?
 
 These are **permanent invariants**. Every change in the codebase respects them.
 
@@ -162,7 +230,7 @@ This lets an endpoint migrate from `192.168.1.50:3306` to
 
 ---
 
-## 5. Structure
+## 6. Structure
 
 ```
 SKILL.md              ← this file. Permanent + small.
@@ -179,14 +247,16 @@ docs/                 ← permanent reference
   history/             Experimental + historical
   releases/            User-facing release notes
 references/           ← session-specific detail & operational guides
-  repository-instance-boundary.md  Security sanitization workflow + boundary principle
+  repository-instance-boundary.md  Security sanitization + boundary principle
+  skill-repo-sync.md               Skill ↔ repo sync workflow (critical)
+  yaml-pitfalls.md                 YAML quoting and type gotchas
 scripts/              ← maintenance tools
   update-github-meta.sh
 ```
 
 ---
 
-## 6. Documentation & Positioning
+## 7. Documentation & Positioning
 
 ### Project vs Category distinction
 
@@ -261,7 +331,7 @@ See **[`references/runtime-compatibility-cleanup.md`](references/runtime-compati
 
 ---
 
-## 7. Links
+## 8. Links
 
 - [`docs/philosophy.md`](../knowledge-kernel/docs/philosophy.md) — Why build this?
 - [`docs/architecture.md`](../knowledge-kernel/docs/architecture.md) — How the engine works
