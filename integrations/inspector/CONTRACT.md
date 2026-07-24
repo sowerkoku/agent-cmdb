@@ -134,6 +134,42 @@ PYTHONPATH=integrations/inspector python3 -m pytest \
 Expect 9/9 green. A regression in any of them indicates a contract
 change has been introduced without this document being updated.
 
+## Evolution policy (frozen)
+
+Any future change to `integrations/inspector/` MUST be classified into
+exactly one of the following three categories. The classification is a
+prerequisite for proposing the change.
+
+| Category | Examples | Action |
+|---|---|---|
+| **New rule** | `low_confidence_dependency`, `cycles_invalid`, `missing_runs_on`, etc. | Implement one `Rule` module. **No contract change.** |
+| **New policy** | Different `stale_after_days`, new severity thresholds, new TTL windows | External configuration that flows through `policy` across all existing rules. **No contract change.** |
+| **Contract change** | Modify `Rule`, `Finding`, `KernelAPI`, or any documented invariant | Requires evidence: a *specific* rule that was impossible (not merely awkward) to implement with the current contract. Without that evidence, the change is rejected. |
+
+The third category is exceptional. If it occurs, the proposal must
+answer:
+
+> What concrete rule could not be implemented under the existing
+> contract? Document the attempted implementation, the obstacle, and
+> why no consumer-side algorithm could bridge the gap.
+
+If no such rule exists, the contract change lacks sufficient
+evidence and stays unsubmitted.
+
+## Contract Stability Index (CSI)
+
+CSI = (number of rules implemented) / (contract changes to date)
+
+This is an *architectural stability* metric, not a quality metric.
+When the Inspector has 5 rules and 0 contract changes, CSI = infinity
+in practice and means the v0.1 contract covered the first-order
+design space. The first contract change after v0.1 freezes MUST be
+justified by demonstrable incapacity, not by aesthetic preference.
+
+Tracking the index is part of every commit touching `inspector/`:
+the commit message records both `rules_implemented` and
+`contract_changes`.
+
 ## What is NOT in this contract
 
 - `inspector.cli` — operational, changes permitted without bumping v0.1.
