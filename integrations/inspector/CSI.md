@@ -7,6 +7,8 @@ commit that touches `integrations/inspector/`.
 
 | Commit | Rules | Contract changes | CSI | Notes |
 |---|---|---|---|---|
+| (pending) | 2 (`stale_entity`, `low_confidence_entity`) | 0 | ∞ | v0.1 frozen; 5 pillars codified; low_confidence_entity observes entity-level confidence only |
+| 335a925 | 1 (`stale_entity`) | 0 | ∞ | Evolution policy + CSI tracking added |
 | 7935cae | 1 (`stale_entity`) | 0 | ∞ | v0.1 frozen; 5 pillars codified |
 
 ## Definition
