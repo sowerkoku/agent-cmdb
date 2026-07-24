@@ -42,7 +42,7 @@ The v1.x line accepts only:
 
 | Surface | Current state | Reason |
 |---|---|---|
-| **Public API** | `cmdb.api` import path; functions `cmdb_get`, `cmdb_exists`, `cmdb_impact`, `cmdb_context`, `cmdb_assert`, `cmdb_search`, `cmdb_list`, `cmdb_validate`, `cmdb_reload`, `cmdb_migrate`, `cmdb_engine_info`, `cmdb_stats` | External agents depend on these signatures |
+| **Public API** | `cmdb.api` import path; functions `cmdb_get`, `cmdb_exists`, `cmdb_impact`, `cmdb_context`, `cmdb_assert`, `cmdb_search`, `cmdb_list`, `cmdb_validate`, `cmdb_engine_info`, `cmdb_stats` (10 names — declared by `cmdb/api.py:__all__`) | External agents depend on these signatures |
 | **YAML entity schema** | v2 schema; fields `id`, `kind`, `status`, `metadata`, `relations`, `evidence` | 36 entities validated against this schema |
 | **Relations contract** | `runs_on`, `depends_on`, `part_of` | Minimum-relations principle; aliases prohibited in v1.x |
 | **Evidence/provenance contract** | `Evidence` model: `source`, `observed_at`, `ttl_seconds`, `confidence`, `confidence_basis`, `validation_method` | Consumers parse this shape |
@@ -50,6 +50,8 @@ The v1.x line accepts only:
 | **Dataset structure** | `~/knowledge/knowledge-kernel/<kind>/<entity_id>.yaml` | Backward-compatible default in `config.py`, `migrator.py` |
 | **Internal package** | Module name `cmdb` | Public import path: `from cmdb.api import …` |
 | **CLI entry point** | `cmdb` command | Registered in `pyproject.toml` |
+| **Maintenance CLI** | `cmdb_reload` (CLI tool, `tools/cmdb_reload.py`) | Forces index invalidation; not part of `cmdb.api` surface |
+| **Internal module surface** | `cmdb.migrator.cmdb_migrate_dry_run`, `cmdb_migrate_apply` (submodule `cmdb/migrator.py`) | Migration primitives; consume via CLI, not via public API |
 | **Hermes skill contract** | `~/.hermes/skills/knowledge-kernel/SKILL.md` | Sync test enforces parity with `integrations/hermes/SKILL.md` |
 | **Distribution name** (already migrated) | `knowledge-kernel` | ✅ Done in v1.2 |
 

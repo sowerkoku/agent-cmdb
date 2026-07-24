@@ -256,28 +256,42 @@ Each entity answers one question:
 
 ## Public API
 
-Eight functions. Nothing else is public.
+Ten functions. Nothing else is public.
 
-The public API is intentionally small.
+The public API is defined by `cmdb/api.py:__all__`. Anything not listed
+there is internal — even if it appears in other documents.
+
 **New APIs require empirical evidence gathered during OBSERVE MODE.**
 
 ```python
 from cmdb.api import (
-    cmdb_exists,    # Check before making any factual claim
-    cmdb_get,       # Entity + evidence (+ entity.runs_on computed property)
-    cmdb_list,      # Filter by kind / domain / status
-    cmdb_search,    # Find by name / description / tags
-    cmdb_impact,    # What breaks if X changes? (dependency graph)
-    cmdb_assert,    # Binary validation for decisions
-    cmdb_context,   # Pre-packaged agent startup context (lazy)
-    cmdb_validate,  # Dataset / schema validation
+    cmdb_exists,      # Check before making any factual claim
+    cmdb_get,         # Entity + evidence (+ entity.runs_on computed property)
+    cmdb_list,        # Filter by kind / domain / status
+    cmdb_search,      # Find by name / description / tags
+    cmdb_impact,      # What breaks if X changes? (dependency graph)
+    cmdb_assert,      # Binary validation for decisions
+    cmdb_context,     # Pre-packaged agent startup context (lazy)
+    cmdb_validate,    # Dataset / schema validation
+    cmdb_engine_info, # Operational metadata (generation, dataset_hash, indexes)
+    cmdb_stats,       # Dataset summary (entity counts by kind)
 )
 ```
 
-Operational introspection (not in public API, available via skill tools):
-- `cmdb_reload()` — explicit index invalidation + observable contract
-- `cmdb_engine_info()` — runtime metadata (generation, dataset_hash, index counts)
-- `cmdb_stats()` — dataset summary (entity counts by kind)
+**Authoritative source.** When this README and `docs/api-python.md`
+disagree, `cmdb/api.py:__all__` is the normative source. Documentation
+converges toward the code, not the reverse. See `docs/governance.md` for
+the decision rule when a discrepancy is discovered.
+
+### Out of the public API
+
+These are useful, but **not part of `cmdb.api`** — they live elsewhere
+and have their own contracts:
+
+- `cmdb_reload` — CLI maintenance tool (`tools/cmdb_reload.py`). Forces
+  index invalidation. Side-effect, not query.
+- `cmdb_migrate_dry_run`, `cmdb_migrate_apply` — Internal submodule
+  (`cmdb/migrator.py`). Migration primitives, consumed via CLI.
 
 Everything else in the `cmdb` package is internal — subject to change.
 

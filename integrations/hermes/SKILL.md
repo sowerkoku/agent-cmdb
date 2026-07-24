@@ -70,28 +70,47 @@ All modules read from `get_config().data_dir`. See
 
 ## 3. What APIs exist, and when to use each?
 
+The public API is defined by `cmdb/api.py:__all__` — that file is the
+normative source. This skill lists the entry points; for signatures,
+examples, and return-type details, read the canonical reference.
+
 ```python
 from cmdb.api import (
+    # Query
     cmdb_exists,    # Existence check before any factual claim
     cmdb_get,       # Full entity with evidence + relations
     cmdb_search,    # Free-text search by name/desc/tags
-    cmdb_list,      # Filter by kind/domain/status
-    cmdb_context,   # Pre-packaged agent context (call once at start)
+    cmdb_list,      # Filtered enumeration by kind/domain/status
+    # Decisions
     cmdb_impact,    # Dependency graph (BEFORE modifying anything)
     cmdb_assert,    # Binary assertion for decision points
+    cmdb_context,   # Pre-packaged agent context (call once at start)
+    # Validation
     cmdb_validate,  # Health check on the whole Kernel
+    # Operational introspection
+    cmdb_engine_info,  # Generation counter, dataset_hash, index sizes
+    cmdb_stats,        # Entity counts by kind, relation total, dataset hash
 )
 ```
 
-Everything else inside `cmdb/` is **internal** and may change without notice.
+Ten public functions. Anything not exported by `cmdb.api.__all__` is
+internal, regardless of where else it appears in the documentation.
 
 > **API Reference**: The canonical, complete documentation of the public
 > API (all functions, return types, usage patterns, best practices,
 > anti-patterns, compatibility) lives in
 > [`docs/api-python.md`](../knowledge-kernel/docs/api-python.md).
->
-> This skill only lists the entry points. For signatures, examples,
-> and return-type details, read the canonical reference.
+
+### What is NOT in the public API
+
+- `cmdb_reload` — CLI maintenance tool at `tools/cmdb_reload.py`. Forces
+  index invalidation. Side-effect, not query.
+- `cmdb_migrate_dry_run`, `cmdb_migrate_apply` — internal submodule
+  (`cmdb/migrator.py`). Migration primitives invoked via CLI.
+
+**Decision rule on documentation drift.** If this SKILL.md and
+`docs/api-python.md` disagree, follow `cmdb/api.py:__all__` and update
+the docs to match. Documentation converges toward code, not the reverse.
 
 ### Decision flow
 
