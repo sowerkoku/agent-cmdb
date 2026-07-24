@@ -1,0 +1,1 @@
+"""Inspector rules package."""
